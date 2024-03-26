@@ -7,8 +7,7 @@ from typing import Tuple, Sequence
 This is a toy example for trajectory g = [0,0,-9.8]
     1. generate trajectory for a = g, t = [0,2] sec
     2. add random noise 
-    3. train mlp([3,3]) to regress v0 + mlp *dt - v1
-    4. compare mlp[3,3] with [0,0,9.8]
+    3. optimize to denoise
 
      p0 ----- p1------p2
           |       |
@@ -99,7 +98,7 @@ def main():
             dt_prev2 = dt_prev
     # for k,v in theseus_inputs.items():
     #     print(f"{k}:{v}")
-    optimizer = th.LevenbergMarquardt(objective, max_iterations=200, step_size=0.4)
+    optimizer = th.LevenbergMarquardt(objective, max_iterations=20, step_size=0.4)
     theseus_optim = th.TheseusLayer(optimizer)
     updated_inputs, _ = theseus_optim.forward(theseus_inputs)
     
