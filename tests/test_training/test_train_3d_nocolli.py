@@ -3,10 +3,14 @@ import torch.nn as nn
 import theseus as th
 
 from lfg.graph import InvariantFactorGraph
+from lfg.util import plot_to_tensorboard
+
 import matplotlib.pyplot as plt
 from mcf4pingpong.draw_util import set_axes_equal
 from typing import Tuple, Sequence
 from functools import partial
+from tensorboardX import SummaryWriter
+
 '''
 This is a toy example for trajectory g = [0,0,-9.8]
     1. generate trajectory for a = g, t = [0,2] sec
@@ -19,6 +23,7 @@ This is a toy example for trajectory g = [0,0,-9.8]
          V0 --MLP-- V1
 '''
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+tb_writer = SummaryWriter(log_dir='logdir/run1')
 
 def generate_trajectory(visualize = False):
     def euler_int(carry, dt):
@@ -49,15 +54,39 @@ def generate_trajectory(visualize = False):
 
     return t, pN_noisy, pN
 
-def rotz(angles):
-    angle = angles
-    cos = torch.cos(angle)
-    sin = torch.sin(angle)[0]
+# def rotz(angles):
+#     angle = angles
+#     cos = torch.cos(angle)
+#     sin = torch.sin(angle)
     
-    return torch.tensor([[cos, -sin, 0.0],
-                         [sin,  cos,  0.0],
-                         [0.0,  0.0,   1.0]])
+#     return torch.tensor([[cos, -sin, 0.0],
+#                          [sin,  cos,  0.0],
+#                          [0.0,  0.0,   1.0]])
 
+@torch.jit.script
+def rotz(batch_angles):
+    """
+    Convert batch angles to rotation matrices about the z-axis using PyTorch.
+
+    Args:
+    batch_angles (torch.Tensor): Batch of angles in radians, shape (B, 1).
+
+    Returns:
+    torch.Tensor: Batch of rotation matrices, shape (B, 3, 3).
+    """
+    cos_theta = torch.cos(batch_angles)
+    sin_theta = torch.sin(batch_angles)
+    zeros = torch.zeros_like(batch_angles)
+    ones = torch.ones_like(batch_angles)
+
+    # Construct the rotation matrices
+    rotation_matrices = torch.stack([
+        torch.stack([cos_theta.squeeze(1), -sin_theta.squeeze(1), zeros.squeeze(1)], dim=1),
+        torch.stack([sin_theta.squeeze(1), cos_theta.squeeze(1), zeros.squeeze(1)], dim=1),
+        torch.stack([zeros.squeeze(1), zeros.squeeze(1), ones.squeeze(1)], dim=1)
+    ], dim=1)
+
+    return rotation_matrices
 
 
 def pos_prior_errfn(optim_vars: Tuple[th.Variable,...], aux_vars: Tuple[th.Variable,...]):
@@ -66,21 +95,15 @@ def pos_prior_errfn(optim_vars: Tuple[th.Variable,...], aux_vars: Tuple[th.Varia
     err = li.tensor[:,:3] - li_prior.tensor[:,:3]
     return err
 
+
+
 def dynamic_forward(model: nn.Module, x:torch.Tensor, dt:torch.Tensor):
     p, th, v, w = x[:,:3], x[:,3:4], x[:,4:6], x[:, 6:7] # keep the batch
 
-    # print(th)
-    # print(rotz(th).shape)
-    # print(torch.tensor([[v[0,0], 0.0, v[0,1]]]).shape)
-    # raise
-    pdot = rotz(th)@ torch.ones(3)#@torch.tensor([v[0,0], 0.0, v[0,1]])
-    pdot = pdot[None,:]
+    pdot = rotz(th)@torch.cat((v[:, 0], torch.tensor([0.0]), v[:, 1]), dim=0)
     thdot = w
     vwdot = model(torch.cat((v,w),dim=1))
 
-    print(pdot.shape)
-    print(thdot.shape)
-    print(vwdot.shape)
     x_dot = torch.cat((pdot,thdot, vwdot), dim=1)
 
     return x + x_dot * dt
@@ -96,14 +119,9 @@ def dynamic_errfn(model: nn.Module, optim_vars:Sequence[th.Variable], aux_vars:S
 
     return x2_est - x2
 
-def main():
-    t, pN_noisy, pN_clean = generate_trajectory(visualize=False)
-    objective = th.Objective()
+def inner_loop(graph, model, pN_noisy,t):
     theseus_inputs = {}
     weight_l_prior = th.ScaleCostWeight(0.1)
-
-    graph = InvariantFactorGraph()
-    model = nn.Linear(3,3)
 
     for i, (ti, pi) in enumerate(zip(t, pN_noisy)):
         xi = th.Vector(7, name=f"x{i}")
@@ -134,28 +152,48 @@ def main():
             
         xi_prev = xi
         t_prev = ti
+
+    return graph, theseus_inputs
+
+def main():
+    t, pN_noisy, pN_clean = generate_trajectory(visualize=False)
     
-    # for k,v in theseus_inputs.items():
-    #     print(f"{k}:{v}")
 
-    updated_inputs = graph.forward(theseus_inputs)
-    
+    graph = InvariantFactorGraph()
+    model = nn.Linear(3,3)
 
-    pN_opt, vN_opt = [],[]
-    for k,v in updated_inputs.items():
-        if 'l' in k:
-            pN_opt.append(v)
-        elif 'v' in k:
-            vN_opt.append(v)
-    pN_opt = torch.vstack(pN_opt)
-
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9)
+    graph, theseus_inputs = inner_loop(graph, model, pN_noisy, t)
     fig= plt.figure()
     ax = fig.add_subplot(projection='3d')
-    ax.scatter(*pN_noisy.T)
-    ax.scatter(*pN_opt.T)
-    ax.plot(*pN_clean.numpy().T)
-    set_axes_equal(ax)
-    plt.show()
+    for epoch in range(100):
+        optimizer.zero_grad()
+        updated_inputs, info = graph.forward(theseus_inputs)
+        graph.update(updated_inputs)
+
+        loss = graph.compute_loss().sum()
+        print(f"{epoch}: {loss.item()}")
+        loss.backward()
+        optimizer.step()
+        tb_writer.add_scalars(main_tag='loss', tag_scalar_dict={'training':loss.item()}, global_step=epoch)
+
+
+        xN_opt = []
+        for k,v in updated_inputs.items():
+            if 'x' in k:
+                xN_opt.append(v)
+    
+
+        xN_opt = torch.vstack(xN_opt)
+        pN_opt = xN_opt[:,:3].detach().cpu()
+
+        ax.cla()
+        
+        ax.scatter(*pN_noisy.T)
+        ax.scatter(*pN_opt.T)
+        ax.plot(*pN_clean.numpy().T)
+        set_axes_equal(ax)
+        plot_to_tensorboard(tb_writer, 'visualze', fig, epoch)
 
 if __name__ == '__main__':
     main()

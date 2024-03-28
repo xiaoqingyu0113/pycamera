@@ -113,10 +113,11 @@ def main():
 
     fig= plt.figure()
     ax = fig.add_subplot(projection='3d')
-    ax.scatter(*pN_noisy.T)
-    ax.scatter(*pN_opt.T)
-    ax.plot(*pN_clean.numpy().T)
+    ax.scatter(*pN_noisy.T, label='noisy data')
+    ax.scatter(*pN_opt.T, label='optimized data')
+    ax.plot(*pN_clean.numpy().T, label='ground truth line')
     set_axes_equal(ax)
+    ax.legend()
     plt.show()
 
 if __name__ == '__main__':

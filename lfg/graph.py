@@ -25,4 +25,10 @@ class InvariantFactorGraph(nn.Module):
         self.optimizer = th.LevenbergMarquardt(self.objective)
         self.layer = th.TheseusLayer(self.optimizer)
         sol, info = self.layer.forward(ival)
-        return sol
+        return sol, info
+    
+    def update(self,update_inputs):
+        self.objective.update(update_inputs)
+
+    def compute_loss(self):
+        return self.objective.error_metric()
