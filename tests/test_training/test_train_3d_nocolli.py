@@ -54,14 +54,6 @@ def generate_trajectory(visualize = False):
 
     return t, pN_noisy, pN
 
-# def rotz(angles):
-#     angle = angles
-#     cos = torch.cos(angle)
-#     sin = torch.sin(angle)
-    
-#     return torch.tensor([[cos, -sin, 0.0],
-#                          [sin,  cos,  0.0],
-#                          [0.0,  0.0,   1.0]])
 
 @torch.jit.script
 def rotz(batch_angles):

@@ -1,7 +1,7 @@
 import torch
 import theseus as th
 import matplotlib.pyplot as plt
-from mcf4pingpong.draw_util import set_axes_equal
+# from mcf4pingpong.draw_util import set_axes_equal
 from typing import Tuple, Sequence
 '''
 This is a toy example for trajectory g = [0,0,-9.8]
@@ -116,7 +116,7 @@ def main():
     ax.scatter(*pN_noisy.T, label='noisy data')
     ax.scatter(*pN_opt.T, label='optimized data')
     ax.plot(*pN_clean.numpy().T, label='ground truth line')
-    set_axes_equal(ax)
+    # set_axes_equal(ax)
     ax.legend()
     plt.show()
 
