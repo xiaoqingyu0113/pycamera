@@ -1,5 +1,7 @@
-from .gru import GRUModel, compute_gru_loss
+from .gru import GRUCellModel, gru_autoregr, gru_pass
 
 
 
-__all__ = ['GRUModel', 'compute_gru_loss']
+__all__ = ['GRUCellModel', 
+           'gru_autoregr', 
+           'gru_pass']

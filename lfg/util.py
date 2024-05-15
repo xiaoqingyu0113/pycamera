@@ -52,6 +52,10 @@ def get_uv_from_3d(y, cam_id_list, camera_param_dict):
 def compute_stamped_triangulations(data:np.ndarray, camera_param_dict:Dict[str, CameraParam]):
     '''
         Compute the 3D positions of the stamped points
+
+        data: [seq_len, 4]
+
+        output: [seq_len-1, 4]
     '''
     positions = []
     stamp = []
@@ -60,9 +64,10 @@ def compute_stamped_triangulations(data:np.ndarray, camera_param_dict:Dict[str, 
         uv_right = data_right[4:6]
         camid_left = str(int(data_left[3]))
         camid_right = str(int(data_right[3]))
-        p = triangulate(uv_left, uv_right, camera_param_dict[camid_left], camera_param_dict[camid_right])
-        positions.append(p)
-        stamp.append(data_right[2])
+        if camid_left != camid_right:
+            p = triangulate(uv_left, uv_right, camera_param_dict[camid_left], camera_param_dict[camid_right])
+            positions.append(p)
+            stamp.append(data_right[2])
     positions = np.array(positions)
     stamp = np.array(stamp)
     return np.hstack((stamp.reshape(-1, 1), positions))
