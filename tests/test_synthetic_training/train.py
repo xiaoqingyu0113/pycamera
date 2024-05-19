@@ -19,7 +19,7 @@ from typing import Dict, List, Tuple
 from omegaconf import OmegaConf
 import hydra
 from functools import partial
-from tests.test_synthetic_training.synthetic.data_generator import generate_data
+from synthetic.data_generator import generate_data
 
 # CONFIG = OmegaConf.load('../../conf/config.yaml')
 # MODEL_CONFIG = CONFIG.model[CONFIG.model_name]
@@ -122,13 +122,14 @@ def get_summary_writer(config) -> SummaryWriter:
         # get the largest number of run in the logdir using pathlib
         paths = list(logdir.glob('*run*'))
         indices = [int(str(p).split('run')[-1]) for p in paths]
+
         if len(indices) == 0:
             max_run_num = 0
         else:
             max_run_num = max(indices)
         if config.model.continue_training:
             tb_writer = SummaryWriter(log_dir=logdir / f'run{max_run_num}')
-            rundir = logdir/f'run{max_run_num}'/'loss'/'training'
+            rundir = logdir/f'run{max_run_num}'/'loss_training'
             rundir = list(rundir.glob('events.out.tfevents.*'))[0]
             initial_step = find_last_step(str(rundir))
         else:
@@ -341,11 +342,13 @@ def visualize_predictions(config):
 
 @hydra.main(version_base=None, config_path='../../conf', config_name='config')
 def main(cfg):
+
     if cfg.task.generate_data:
         generate_data(cfg)
 
     if cfg.task.train:
         train_loop(cfg)
+    
     # test_camera_torch(cfg)
     # view_triangulations(cfg)
 
