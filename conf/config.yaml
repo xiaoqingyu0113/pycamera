@@ -1,6 +1,6 @@
 defaults:
   - model: gru
-  - dataset: synthetic/nonoise_consspin
+  - dataset: synthetic/consspin
   - _self_
 
 task:
