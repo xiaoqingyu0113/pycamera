@@ -130,8 +130,8 @@ def get_summary_writer(config) -> SummaryWriter:
         if config.model.continue_training:
             tb_writer = SummaryWriter(log_dir=logdir / f'run{max_run_num}')
             rundir = logdir/f'run{max_run_num}'/'loss_training'
-            rundir = list(rundir.glob('events.out.tfevents.*'))[0]
-            initial_step = find_last_step(str(rundir))
+            rundir = list(rundir.glob('events.out.tfevents.*'))
+            initial_step = max([find_last_step(str(rd)) for rd in rundir])
         else:
             tb_writer = SummaryWriter(log_dir=logdir / f'run{1+max_run_num}')
     return tb_writer, initial_step
@@ -158,7 +158,10 @@ def get_model(config) -> nn.Module:
         from lfg.model import SpatialModel, spatial_autoregr
         model = SpatialModel(model_config.input_size, model_config.hidden_size, model_config.output_size).to(DEVICE)
         model_autoregr = spatial_autoregr
-        
+    elif model_config.model_name == 'gru_his':
+        from lfg.model import GRUHisModel, gruhis_autoregr
+        model = GRUHisModel(model_config.input_size, model_config.history, model_config.hidden_size, model_config.output_size).to(DEVICE)
+        model_autoregr = gruhis_autoregr
     return model, model_autoregr
 
 
@@ -207,7 +210,7 @@ def train_loop(config):
 
     # Tensorboard writer
     tb_writer, step_count = get_summary_writer(config)
-    print(f'Initial step: {step_count}')
+    
 
     # camera files 
     camera_param_dict = get_camera_param_dict(config)
@@ -243,6 +246,13 @@ def train_loop(config):
             'min': torch.inf
         }
     }
+
+    print('------------------- Training task:')
+    print(OmegaConf.to_yaml(config.task))
+    print('-------------------- Model configuration:')
+    print(OmegaConf.to_yaml(config.model))
+    print(f'initial step: {step_count}')
+
     for epoch in range(config.model.num_epochs):
         total_loss = torch.tensor(0.0).to(DEVICE)
         optimizer.zero_grad()
