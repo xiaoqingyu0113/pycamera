@@ -1,5 +1,5 @@
 defaults:
-  - model: gru
+  - model: gru_his
   - dataset: synthetic/nonoise_consspin
   - _self_
 
