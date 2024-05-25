@@ -1,7 +1,7 @@
 import numpy as np
 from .dynamics import *
 
-def predict_trajectory(p0, v0, w0, tspan, C_d=0.1196, C_m=0.015, mu = 0.22, ez = 0.79):
+def predict_trajectory(p0, v0, w0, tspan,z0=0.0, C_d=0.1196, C_m=0.015, mu = 0.22, ez = 0.79):
     # https://ieeexplore.ieee.org/document/5723394
 
     N = len(tspan)
@@ -16,7 +16,7 @@ def predict_trajectory(p0, v0, w0, tspan, C_d=0.1196, C_m=0.015, mu = 0.22, ez =
         t = tspan[i-1]
         t_now = tspan[i]
 
-        if l[2]<0.0 and v[2] < 0.0: # bounce? Yes!
+        if l[2]<0.0 and v[2] < z0: # bounce? Yes!
             al = compute_alpha(v,w,[mu,ez])
             if al < 0.4:
                 v = bounce_slide_velocity_forward(v,w,[mu,ez]).flatten()

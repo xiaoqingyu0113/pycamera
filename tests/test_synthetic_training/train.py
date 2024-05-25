@@ -28,6 +28,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from lfg.util import compute_stamped_triangulations
 from lfg.util import get_uv_from_3d
 
+# torch.autograd.set_detect_anomaly(True)
 
 
 def get_camera_param_dict(config) -> Dict[str, CameraParam]:
@@ -141,7 +142,7 @@ def get_model(config) -> nn.Module:
     '''
         Get the model
     '''
-    from functools import partial
+
     model_config = config.model
     if model_config.model_name == 'gru':
         from lfg.model import GRUCellModel, gru_autoregr
@@ -162,6 +163,14 @@ def get_model(config) -> nn.Module:
         from lfg.model import GRUHisModel, gruhis_autoregr
         model = GRUHisModel(model_config.input_size, model_config.history, model_config.hidden_size, model_config.output_size).to(DEVICE)
         model_autoregr = gruhis_autoregr
+    elif model_config.model_name == 'mskip':
+        from lfg.model import MSkipModel, mskip_autoregr
+        model = MSkipModel(model_config.input_size, model_config.c_size, model_config.hidden_size, model_config.output_size).to(DEVICE)
+        model_autoregr = mskip_autoregr
+    elif model_config.model_name == 'physics':
+        from lfg.model import PhysicsModel, physics_autoregr
+        model = PhysicsModel(model_config.his_len, model_config.hidden_size).to(DEVICE)
+        model_autoregr = physics_autoregr
     return model, model_autoregr
 
 
@@ -220,6 +229,13 @@ def train_loop(config):
 
     # training loop
     model, model_autoregr = get_model(config)
+    # # Initialize weights with small random numbers
+    # for name, param in model.named_parameters():
+    #     if 'weight' in name:
+    #         nn.init.normal_(param.data, mean=0, std=0.1)  # Small standard deviation
+    #     elif 'bias' in name:
+    #         param.data.fill_(0)  # Typically biases can be initialized to zero
+
     if config.model.continue_training:
         model_path = Path(tb_writer.get_logdir())/f'model_{config.model.model_name}.pth'
         model.load_state_dict(torch.load(model_path))
@@ -229,7 +245,7 @@ def train_loop(config):
   
 
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.model.lr_init)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.model.lr_init, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.model.lr_step_size, gamma=config.model.lr_gamma)
 
     
@@ -258,7 +274,7 @@ def train_loop(config):
         optimizer.zero_grad()
         batch_traj = config.model.batch_trajectory
         for i, data in enumerate(train_loader):
-            
+
             spin = data[0,0,6:9].float() # get spin
             update_spin_info(spin, spin_info)
 
@@ -278,6 +294,7 @@ def train_loop(config):
 
                 # Backward and optimize
                 total_loss.backward()
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
                 optimizer.step()
                 total_loss = torch.tensor(0.0).to(DEVICE)
                 optimizer.zero_grad()

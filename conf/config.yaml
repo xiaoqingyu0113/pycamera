@@ -1,6 +1,6 @@
 defaults:
-  - model: gru_his
-  - dataset: synthetic/nonoise_consspin
+  - model: physics
+  - dataset: synthetic/nonoise_consspin_nobounce
   - _self_
 
 task:

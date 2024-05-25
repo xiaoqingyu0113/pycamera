@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+#import grucell from torch.nn.GRUCell   
 
 # class Cross(nn.Module):
 #     def __init__(self, num_layers=2, hidden_size=128):
@@ -58,7 +59,7 @@ import torch.nn as nn
 
 
 class Cross(nn.Module):
-    def __init__(self, num_layers=3, hidden_size=128):
+    def __init__(self, num_layers=2, hidden_size=128):
         super().__init__()
         self.fc1 = nn.Linear(6, hidden_size)
         self.fc2 = nn.Linear(6, hidden_size)
@@ -69,9 +70,8 @@ class Cross(nn.Module):
 
     def forward(self, x):
         x3 = self.fc1(x)
-        x3 = x3/x3.norm(dim=-1, keepdim=True)
         x4 = self.fc2(x)
-        x4 = x4/x4.norm(dim=-1, keepdim=True)
+        
 
         x1 = self.fc3(x)
         x2 = self.fc4(x)
@@ -79,45 +79,57 @@ class Cross(nn.Module):
         x = x3*x4
         x = self.fc(x)
         return x
-        
+
+class GRUCross(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.gru = nn.GRUCell(3,3)
+        self.fc = nn.Linear(3,3)
+    def forward(self, x, h):
+        h = self.gru(x,h)
+        y = self.fc(h)
+        return y
+
+
 def generate_data():
     return torch.randn(batch_size, 6, device='cuda')  *10
 
 
 
 def compute_cross(x):
-    u = x[:, :3]/torch.linalg.norm(x[:, :3], dim=-1, keepdim=True)
-    v = x[:, 3:]/torch.linalg.norm(x[:, :3], dim=-1, keepdim=True)
+    u = x[:, :3]
+    v = x[:, 3:]
     return torch.linalg.cross(u, v)
 
 
+if __name__ == '__main__':
+    epoch_num = 1000
+    batch_size = 64
+    # model = Cross(num_layers=2, hidden_size=128)
+    model = GRUCross()
+    model = model.cuda()  # Move model to GPU
 
-epoch_num = 1000
-batch_size = 64
-model = Cross(num_layers=2, hidden_size=128)
-model = model.cuda()  # Move model to GPU
+    optim = torch.optim.Adam(model.parameters(), lr=1e-1)
+    criteria = torch.nn.MSELoss()
+    for epoch in range(epoch_num):
+        optim.zero_grad()
+        x =generate_data()
+        y = model(x[:,:3],x[:,3:])
+        y_gt = compute_cross(x)  
+        loss = criteria(y, y_gt)
+        loss.backward()
+        optim.step()
 
-optim = torch.optim.Adam(model.parameters(), lr=1e-1)
-criteria = torch.nn.MSELoss()
-for epoch in range(epoch_num):
-    optim.zero_grad()
-    x =generate_data()
-    y = model(x)
-    y_gt = compute_cross(x)  
-    loss = criteria(y, y_gt)
-    loss.backward()
-    optim.step()
+        if epoch % 100 == 0:
+            print('-----------------')
+            print(f"Epoch {epoch}, loss: {loss.item()}")
+            with torch.no_grad():
+                x = generate_data()
+                y = model(x[:,:3],x[:,3:])
+                y_gt = compute_cross(x) 
 
-    if epoch % 100 == 0:
-        print('-----------------')
-        print(f"Epoch {epoch}, loss: {loss.item()}")
-        with torch.no_grad():
-            x = generate_data()
-            y = model(x)
-            y_gt = compute_cross(x) 
-
-            print("y_gt: ", y_gt[0])
-            print("y: ", y[0])
+                print("y_gt: ", y_gt[0])
+                print("y: ", y[0])
 
 
            

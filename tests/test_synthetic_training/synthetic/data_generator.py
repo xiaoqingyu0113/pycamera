@@ -40,8 +40,8 @@ def generate_synthetic_trajectory_data(cfg):
     t_max = cfg.dataset.t_max
     for traj_idx in range(total_traj_num):
         p0, v0, w0 = get_random_initial_state(cfg)
-        tspan = nonuniform_span(0, t_max, seq_len, t_max/seq_len*0.8)
-        traj = predict_trajectory(p0, v0, w0, tspan)
+        tspan = nonuniform_span(0, t_max, seq_len, t_max/seq_len*0.4)
+        traj = predict_trajectory(p0, v0, w0, tspan, z0 = cfg.dataset.z0)
         traj_idx_col = np.full((traj.shape[0],1), traj_idx)
         traj = np.hstack((traj_idx_col,tspan.reshape(-1,1), traj))
         if traj_idx == 0:
