@@ -14,3 +14,4 @@ dw0: [0.01, 0.01, 0.01]
 uv_noise: 0.01 # px
 t_max: 1.0 # sec
 seq_len: 200
+z0: 0.0

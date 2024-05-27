@@ -118,7 +118,7 @@ def get_summary_writer(config) -> SummaryWriter:
     initial_step = 0
     if not logdir.exists():
         logdir.mkdir(parents=True)
-        tb_writer = SummaryWriter(log_dir=logdir / 'run0')
+        tb_writer = SummaryWriter(log_dir=logdir / 'run00')
     else:
         # get the largest number of run in the logdir using pathlib
         paths = list(logdir.glob('*run*'))
@@ -129,12 +129,12 @@ def get_summary_writer(config) -> SummaryWriter:
         else:
             max_run_num = max(indices)
         if config.model.continue_training:
-            tb_writer = SummaryWriter(log_dir=logdir / f'run{max_run_num}')
-            rundir = logdir/f'run{max_run_num}'/'loss_training'
+            tb_writer = SummaryWriter(log_dir=logdir / f'run{max_run_num:02d}')
+            rundir = logdir/f'run{max_run_num:02d}'/'loss_training'
             rundir = list(rundir.glob('events.out.tfevents.*'))
             initial_step = max([find_last_step(str(rd)) for rd in rundir])
         else:
-            tb_writer = SummaryWriter(log_dir=logdir / f'run{1+max_run_num}')
+            tb_writer = SummaryWriter(log_dir=logdir / f'run{1+max_run_num:02d}')
     return tb_writer, initial_step
 
 
@@ -171,6 +171,14 @@ def get_model(config) -> nn.Module:
         from lfg.model import PhysicsModel, physics_autoregr
         model = PhysicsModel(model_config.his_len, model_config.hidden_size).to(DEVICE)
         model_autoregr = physics_autoregr
+    elif model_config.model_name == 'physics_kf':
+        from lfg.model import PhysicsKFModel, physicskf_autoregr
+        model = PhysicsKFModel().to(DEVICE)
+        model_autoregr = physicskf_autoregr
+    elif model_config.model_name == 'physics_optim':
+        from lfg.model import CombinedModel, physics_optim_autoregr
+        model = CombinedModel().to(DEVICE)
+        model_autoregr = physics_optim_autoregr
     return model, model_autoregr
 
 
@@ -179,22 +187,28 @@ def train_loss(model, model_pass, data, camera_param_dict, criterion):
     data = data[0] # ignore the batch size
 
     uv_pred = model_pass(model, data, camera_param_dict)
-    uv_gt = data[1:, 4:6].float().to(DEVICE)
+
+    N_data = uv_pred.shape[0] # in case of sheduling the data
+    uv_gt = data[1:N_data+1, 4:6].float().to(DEVICE)
 
     loss = criterion(uv_gt, uv_pred)
-
+   
+   
     return loss
+    # return loss
 
 
         
 
-def test_autoregr_loss(model, model_autoregr, test_loader, camera_param_dict, criterion):
+def test_autoregr_loss(config, model, model_autoregr, test_loader, camera_param_dict, criterion):
     '''
         Validate the GRU model
     '''
     with torch.no_grad():
         test_loss = 0.0
         for data in test_loader:
+            N_data = int(config.model.use_data * data.shape[1])
+            data = data[:, :N_data, :]
             loss = train_loss(model, model_autoregr, data, camera_param_dict, criterion)
             test_loss += loss.item()
 
@@ -229,19 +243,14 @@ def train_loop(config):
 
     # training loop
     model, model_autoregr = get_model(config)
-    # # Initialize weights with small random numbers
-    # for name, param in model.named_parameters():
-    #     if 'weight' in name:
-    #         nn.init.normal_(param.data, mean=0, std=0.1)  # Small standard deviation
-    #     elif 'bias' in name:
-    #         param.data.fill_(0)  # Typically biases can be initialized to zero
+ 
 
     if config.model.continue_training:
         model_path = Path(tb_writer.get_logdir())/f'model_{config.model.model_name}.pth'
         model.load_state_dict(torch.load(model_path))
         print(f"model loaded from {model_path}")
 
-    model_autoregr = partial(model_autoregr, fraction_est=config.model.estimation_fraction)
+    model_autoregr = partial(model_autoregr, config=config)
   
 
     criterion = nn.MSELoss()
@@ -263,24 +272,31 @@ def train_loop(config):
         }
     }
 
-    print('------------------- Training task:')
+    print('------------------- Training task-------------------')
     print(OmegaConf.to_yaml(config.task))
-    print('-------------------- Model configuration:')
+    print('-------------------- Model configuration-------------------')
     print(OmegaConf.to_yaml(config.model))
+    print('-------------------- dataset configuration-------------------')
+    print(OmegaConf.to_yaml(config.dataset))
+
     print(f'initial step: {step_count}')
 
     for epoch in range(config.model.num_epochs):
         total_loss = torch.tensor(0.0).to(DEVICE)
         optimizer.zero_grad()
         batch_traj = config.model.batch_trajectory
+        
         for i, data in enumerate(train_loader):
+            # data (batch_size, seq_len, input_size)
 
             spin = data[0,0,6:9].float() # get spin
             update_spin_info(spin, spin_info)
 
-            # data (batch_size, seq_len, input_size)
-            
-
+            # fig = visualize_predictions(config, data = next(iter(test_loader))[0] , model = model,  model_autoregr = model_autoregr)
+            # tb_writer.add_figure('predictions vs. actuals',
+            #                 fig,
+            #                 global_step=step_count)
+            # raise
             loss = train_loss(model, model_autoregr, data, camera_param_dict, criterion)
             total_loss += loss
             step_count += 1 # for logs
@@ -298,19 +314,29 @@ def train_loop(config):
                 optimizer.step()
                 total_loss = torch.tensor(0.0).to(DEVICE)
                 optimizer.zero_grad()
-                
+                # fig = visualize_predictions(config, data = next(iter(test_loader))[0] , model = model,  model_autoregr = model_autoregr)
+                # tb_writer.add_figure('predictions vs. actuals',
+                #                 fig,
+                #                 global_step=step_count)
         scheduler.step()
 
         # Test the model every 1 epochs
         if (epoch+1) % 1 == 0:
-            auto_regr_loss = test_autoregr_loss(model, model_autoregr, test_loader, camera_param_dict, criterion)
+            auto_regr_loss = test_autoregr_loss(config, model, model_autoregr, test_loader, camera_param_dict, criterion)
             print(f' \t Autoregressive Loss: {auto_regr_loss}')
 
             tb_writer.add_scalars(main_tag='loss', tag_scalar_dict={'auto_regr':auto_regr_loss}, global_step=step_count)
             tb_writer.add_scalar('learning_rate', scheduler.get_last_lr()[0], global_step=step_count)
             tb_writer.add_scalars(main_tag='spin_info', tag_scalar_dict={'max_w0_x':spin_info['w0_x']['max'], 'min_w0_x':spin_info['w0_x']['min'],
                                                                         'max_w0_y':spin_info['w0_y']['max'], 'min_w0_y':spin_info['w0_y']['min'],
-                                                                        'max_w0_z':spin_info['w0_z']['max'], 'min_w0_z':spin_info['w0_z']['min']}, global_step=step_count)
+                                                                        'max_w0_z':spin_info['w0_z']['max'], 'min_w0_z':spin_info['w0_z']['min']}, 
+                                                                        global_step=step_count)
+        
+            fig = visualize_predictions(config, data = next(iter(test_loader))[0] , model = model,  model_autoregr = model_autoregr)
+            tb_writer.add_figure('predictions vs. actuals',
+                            fig,
+                            global_step=step_count)
+
         # Save model checkpoint
         tb_writer.flush()
         model_save_path = Path(tb_writer.get_logdir())/f'model_{config.model.model_name}.pth'
@@ -320,51 +346,54 @@ def train_loop(config):
     # Close the writer
     tb_writer.close()
 
-def visualize_predictions(config):
+
+def visualize_predictions(config, data = None, model = None,  model_autoregr = None):
     # Load data
-    train_loader, test_loader = get_data_loaders()
-    data = next(iter(test_loader))[0] # ignore the batch size
+    if data is None:
+        train_loader, test_loader = get_data_loaders(config)
+        data = next(iter(test_loader))[0] # ignore the batch size
 
-    # camera files 
-    camera_param_dict = {camera_id: CameraParam.from_yaml(Path(config.camera.folder) / f'{camera_id}_calibration.yaml') for camera_id in config.camera.cam_ids}
-   
+    # camera dict
+    camera_param_dict = get_camera_param_dict(config)
+    
     # training loop
-    model, model_pass, model_autoregr = get_model()
-    state_dict = torch.load( Path(config.model.model_path) / f'model_{config.model.model_name}.pth')
-    model.load_state_dict(state_dict)
-    model.eval()
+    if model is None:
+        model, model_autoregr = get_model(config)
+        state_dict = torch.load( Path(config.model.model_path) / f'model_{config.model.model_name}.pth')
+        model.load_state_dict(state_dict)
+        model_autoregr = partial(model_autoregr, config=config)
 
+    model.eval()
 
     # predict
     with torch.no_grad():
-        uv_pred = model_pass(model, data, camera_param_dict)
-        uv_autoregr = model_autoregr(model, data, camera_param_dict, fraction_est=config.estimation_fraction)
-    uv_gt = data[1:, 4:6].float()
+        uv_autoregr = model_autoregr(model, data, camera_param_dict)
+
+    N_data = uv_autoregr.shape[0] # in case of sheduling the data
+    uv_gt = data[1:N_data+1, 4:6].float()
 
     # visualize
-    fig = plt.figure(figsize=(12,10))
-    ax = fig.subplots(2, 3)
+    fig = plt.figure(figsize=(12,4))
+    ax = fig.subplots(1, 3)
     ax = ax.flatten()
 
     data = data.cpu().numpy()
+    data = data[1:N_data+1, :]
+    uv_gt = uv_gt.cpu().numpy()
+    uv_autoregr = uv_autoregr.cpu().numpy()
 
-    for ax_id, cam_id in enumerate(camera_param_dict.keys()):
-        ind = np.where(data[1:, 3].astype(int) == int(cam_id))[0]
-        
-        ax[ax_id].scatter(uv_pred[ind, 0].cpu().numpy(), uv_pred[ind, 1].cpu().numpy(), color='blue',label='Prediction')
-        ax[ax_id].scatter(uv_gt[ind, 0].cpu().numpy(), uv_gt[ind, 1].cpu().numpy(), color='r', label='Ground Truth')
-        ax[ax_id].invert_yaxis()
-        ax[ax_id].set_title(f'Camera {cam_id}\nRecurrent Prediction')
     
     for ax_id, cam_id in enumerate(camera_param_dict.keys()):
         ind = np.where(data[1:, 3].astype(int) == int(cam_id))[0]
         
-        ax[ax_id+3].scatter(uv_autoregr[ind, 0].cpu().numpy(), uv_autoregr[ind, 1].cpu().numpy(), color='blue',label='Prediction')
-        ax[ax_id+3].scatter(uv_gt[ind, 0].cpu().numpy(), uv_gt[ind, 1].cpu().numpy(), color='r', label='Ground Truth')
-        ax[ax_id+3].invert_yaxis()
-        ax[ax_id+3].set_title(f'Camera {cam_id}\nAutoregressive Prediction')
-    # for axi in ax:
-    #     axi.legend()
+        ax[ax_id].scatter(uv_autoregr[ind, 0], uv_autoregr[ind, 1], color='blue',label='Prediction')
+        ax[ax_id].scatter(uv_gt[ind, 0], uv_gt[ind, 1], color='r', label='Ground Truth')
+        ax[ax_id].invert_yaxis()
+        ax[ax_id].set_title(f'Camera {cam_id}\nRecurrent Prediction')
+        ax[ax_id].legend()
+    model.train()
+    return fig
+
 
 
 @hydra.main(version_base=None, config_path='../../conf', config_name='config')

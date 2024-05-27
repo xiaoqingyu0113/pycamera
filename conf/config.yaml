@@ -1,5 +1,5 @@
 defaults:
-  - model: physics
+  - model: physics_optim
   - dataset: synthetic/nonoise_consspin_nobounce
   - _self_
 
