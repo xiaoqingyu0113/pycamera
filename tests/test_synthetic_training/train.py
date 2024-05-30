@@ -188,10 +188,30 @@ def train_loss(model, model_pass, data, camera_param_dict, criterion):
 
     uv_pred = model_pass(model, data, camera_param_dict)
 
+
     N_data = uv_pred.shape[0] # in case of sheduling the data
     uv_gt = data[1:N_data+1, 4:6].float().to(DEVICE)
 
-    loss = criterion(uv_gt, uv_pred)
+
+    feat_gt = []
+    feat_pred = []
+    for ax_id, cam_id in enumerate(camera_param_dict.keys()):
+        ind = torch.where(data[1:, 3].to(torch.int) == int(cam_id))[0]
+        uv_pred_cami = uv_pred[ind, :]
+        uv_gt_cami = uv_gt[ind, :]
+
+        duv_pred = torch.diff(uv_pred_cami, dim=0, prepend=uv_pred_cami[0:1, :])*10.0
+        duv_gt = torch.diff(uv_gt_cami, dim=0, prepend=uv_gt_cami[0:1, :])*10.0
+
+        dduv_pred = torch.diff(duv_pred, dim=0, prepend=duv_pred[0:1, :])*100.0
+        dduv_gt = torch.diff(duv_gt, dim=0, prepend=duv_gt[0:1, :])*100.0
+
+        feat_pred.append(torch.cat([uv_pred_cami, duv_pred, dduv_pred], dim=1))
+        feat_gt.append(torch.cat([uv_gt_cami, duv_gt, dduv_gt], dim=1))
+
+    feat_pred = torch.cat(feat_pred, dim=0)
+    feat_gt = torch.cat(feat_gt, dim=0)
+    loss = criterion(feat_pred, feat_gt)
    
    
     return loss
@@ -289,14 +309,10 @@ def train_loop(config):
         for i, data in enumerate(train_loader):
             # data (batch_size, seq_len, input_size)
 
-            spin = data[0,0,6:9].float() # get spin
+            spin = data[0,0,12:15].float() # get spin
             update_spin_info(spin, spin_info)
-
-            # fig = visualize_predictions(config, data = next(iter(test_loader))[0] , model = model,  model_autoregr = model_autoregr)
-            # tb_writer.add_figure('predictions vs. actuals',
-            #                 fig,
-            #                 global_step=step_count)
-            # raise
+      
+      
             loss = train_loss(model, model_autoregr, data, camera_param_dict, criterion)
             total_loss += loss
             step_count += 1 # for logs
@@ -310,14 +326,12 @@ def train_loop(config):
 
                 # Backward and optimize
                 total_loss.backward()
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
+
                 optimizer.step()
                 total_loss = torch.tensor(0.0).to(DEVICE)
                 optimizer.zero_grad()
-                # fig = visualize_predictions(config, data = next(iter(test_loader))[0] , model = model,  model_autoregr = model_autoregr)
-                # tb_writer.add_figure('predictions vs. actuals',
-                #                 fig,
-                #                 global_step=step_count)
+    
+    
         scheduler.step()
 
         # Test the model every 1 epochs

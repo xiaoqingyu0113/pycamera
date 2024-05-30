@@ -1,6 +1,6 @@
 defaults:
   - model: physics_optim
-  - dataset: synthetic/nonoise_consspin_nobounce
+  - dataset: synthetic/nonoise_nospin_nobounce
   - _self_
 
 task:

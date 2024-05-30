@@ -34,6 +34,15 @@ def append_csv(file_name: str, data:np.ndarray):
             writer.writerow(row)
 
 def generate_synthetic_trajectory_data(cfg):
+    '''
+    generate synthetic trajectory data using analytical dynamic model from paper
+    - traj_idx  [0]: same above
+    - time_stamp [1]: same above
+    - p_xyz [2:5]: position (m)
+    - v_xyz [5:8]: velocity (m/s)
+    - w_xyz [8:11]: spin (rad/s)
+    
+    '''
     file_path = Path(cfg.dataset.folder) / cfg.dataset.trajectory_data
     total_traj_num = cfg.dataset.total_traj_num
     seq_len = cfg.dataset.seq_len
@@ -65,7 +74,24 @@ def get_w0_from_traj_idx(data, traj_idx):
     traj = data[data[:,0] == traj_idx, :]
     w0 = traj[0, 8:11]
     return  w0
+
+
 def generate_camera_data_with_noise(cfg):
+    '''
+    generate camera data with noise
+
+    - traj_idx [0]: the trajectory the datapoint belongs to $$a+b$$
+    - data_idx [1]: the index of the current datapoint 
+	- used to backtrack to image
+	- not continuous 
+    - times_tamp [2]: seconds from rostime
+    - camera_id [3]: the camera id 
+    - u,v [4:6]: the detection of the center of the ball 
+    - p [6:9]: ground truth positions
+    - v [9:12]: ground truth positions
+    - w [12:15]: ground truth positions
+
+    '''
     camera_ids = cfg.camera.cam_ids
     camera_param_dict = {camera_id: CameraParam.from_yaml(Path(cfg.camera.folder) / f'{camera_id}_calibration.yaml') for camera_id in cfg.camera.cam_ids}
     data = load_synthetic_data(Path(cfg.dataset.folder) / cfg.dataset.trajectory_data)
@@ -81,7 +107,7 @@ def generate_camera_data_with_noise(cfg):
             cm = camera_param_dict[camera_id]
             uv = cm.proj2img(xyz)
             uv = noise_uv(uv, cfg.dataset.uv_noise)
-            writer.writerow([traj_idx, data_idx, t, camera_id, uv[0], uv[1],w0[0],w0[1],w0[2]])
+            writer.writerow([traj_idx, data_idx, t, camera_id, uv[0], uv[1],row[2], row[3], row[4], row[5], row[6], row[7],row[8], row[9], row[10]])
     print(f"Generated camera data with noise in {cfg.dataset.folder}/{cfg.dataset.camera_data}")
 
 def generate_data(cfg):

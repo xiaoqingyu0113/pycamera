@@ -135,7 +135,7 @@ def set_param(m, val):
 class OptimModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc_vw = nn.Sequential(nn.Linear(6, 128), nn.ReLU())
+        self.fc_vw = nn.Sequential(nn.Linear(9, 128), nn.ReLU(), nn.Linear(128, 128), nn.ReLU(), nn.Linear(128, 128), nn.ReLU())
         self.fc_b = nn.Sequential(nn.Linear(1, 128), nn.Sigmoid())
         self.decoder = nn.Linear(128, 3)
 
@@ -144,7 +144,7 @@ class OptimModel(nn.Module):
         set_param(self.decoder, 1e-5)
 
     def forward(self, p, v, w):
-        vw = torch.cat((v,w), dim=1)
+        vw = torch.cat((v,w, torch.linalg.cross(v,w)), dim=1)
         h_vw = self.fc_vw(vw)
 
         b = p[:,2:3]
@@ -181,7 +181,7 @@ def physics_optim_autoregr(model, data, camera_param_dict, config):
 
 
 
-    w0 = data[0, 6:9].float().to(DEVICE)
+    w0 = data[0, 12:15].float().to(DEVICE)
     solution = state_estimation(stamped_positions[:N, :], w0, model.model_v, model.model_w)
 
     y = []
