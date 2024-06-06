@@ -191,6 +191,11 @@ def physics_optim_autoregr(model, data, camera_param_dict, config):
     # auto regressive
     vi = solution[f'v{N-1}']
     wi = solution[f'w{N-1}']
+
+    print(f"p_est = {y[-1].clone().detach()}, \t p_gt = {data[N-1, 6:9]}")
+    print(f"v_est = {vi.clone().detach()}, \t v_gt = {data[N-1, 9:12]}")
+    print(f"w_est = {wi.clone().detach()}, \t w_gt = {data[N-1, 12:15]}")
+
     for i in range(N, stamped_positions.shape[0]):
         dt = stamped_positions[i,0] - stamped_positions[i-1,0]
         v_dot, w_dot = model(y[-1], vi, wi)

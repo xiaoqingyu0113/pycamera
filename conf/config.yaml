@@ -1,5 +1,5 @@
 defaults:
-  - model: physics_optim
+  - model: traj/phytune
   - dataset: synthetic/nonoise_nospin_nobounce
   - _self_
 

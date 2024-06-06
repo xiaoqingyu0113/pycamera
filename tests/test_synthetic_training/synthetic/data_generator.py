@@ -35,7 +35,8 @@ def append_csv(file_name: str, data:np.ndarray):
 
 def generate_synthetic_trajectory_data(cfg):
     '''
-    generate synthetic trajectory data using analytical dynamic model from paper
+    Generate synthetic trajectory data using analytical dynamic model from paper
+    This dataset does not include any noise or uncertainty
     - traj_idx  [0]: same above
     - time_stamp [1]: same above
     - p_xyz [2:5]: position (m)

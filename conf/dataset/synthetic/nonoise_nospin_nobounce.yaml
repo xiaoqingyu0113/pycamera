@@ -3,6 +3,7 @@ folder: data/synthetic
 camera_data: camera_nonoise_nospin_nobounce.csv
 trajectory_data: traj_nonoise_nospin_nobounce.csv
 
+batch_size: 32
 z0: -100.0 # bounce of table
 total_traj_num: 500
 p0: [0.5, -2.4, 0.4] # m

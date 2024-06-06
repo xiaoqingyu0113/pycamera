@@ -1,24 +1,11 @@
 import torch
 import torch.nn as nn
+import sys
+import matplotlib.pyplot as plt
 #import grucell from torch.nn.GRUCell   
 
-# class Cross(nn.Module):
-#     def __init__(self, num_layers=2, hidden_size=128):
-#         super().__init__()
-#         self.relu = nn.ReLU()
-#         self.fc0 = nn.Linear(6, hidden_size)
-#         self.layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(num_layers)])  # Use ModuleList
-#         self.fc1 = nn.Linear(hidden_size, 3)
-#         self.lm = nn.LayerNorm(hidden_size)
 
-#     def forward(self, x):
-#         x = self.relu(self.fc0(x))
-#         for layer in self.layers:
-#             x = self.relu(layer(x)) +x
-#             x = self.lm(x)
-            
-#         x = self.fc1(x)
-#         return x
+
 
 # class SpatialGatingUnit(nn.Module):
 #     def __init__(self, d_ffn, seq_len):
@@ -34,48 +21,20 @@ import torch.nn as nn
 #         out = u * v
 #         return out
     
-# class Cross(nn.Module):
-#     def __init__(self, num_layers=3, hidden_size=128):
-#         super().__init__()
-#         self.relu = nn.ReLU()
-#         self.lm = nn.LayerNorm(6)
-#         self.lm2 = nn.LayerNorm(hidden_size//2)
-#         self.fc2 = nn.Linear(hidden_size//2, hidden_size//2)
-#         self.fc0 = nn.Linear(6, hidden_size)
-#         self.layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(num_layers)])  # Use ModuleList
-#         self.fc3 = nn.Linear(hidden_size//2, 6)
-#         # self.lm2 = nn.LayerNorm(hidden_size)
-#         self.fc4 = nn.Linear(6,3)
-
-#     def forward(self, x):
-#         h = self.lm(x)
-#         h = self.fc0(h)
-#         h = self.relu(h)
-#         u,v = h.chunk(2, dim=-1)
-#         h = u * self.fc2(self.lm2(v))
-#         h = self.fc3(h)
-#         h = x + h
-#         return self.fc4(h)
 
 
-class Cross(nn.Module):
-    def __init__(self, num_layers=2, hidden_size=128):
+
+class MultiplyLayer32(nn.Module):
+    def __init__(self, hidden_size=32):
         super().__init__()
         self.fc1 = nn.Linear(6, hidden_size)
         self.fc2 = nn.Linear(6, hidden_size)
-        self.fc3 = nn.Linear(6, hidden_size)
-        self.fc4 = nn.Linear(6, hidden_size)
         self.fc = nn.Linear(hidden_size, 3)
-        self.lm = nn.LayerNorm(6)
 
     def forward(self, x):
         x3 = self.fc1(x)
         x4 = self.fc2(x)
         
-
-        x1 = self.fc3(x)
-        x2 = self.fc4(x)
-
         x = x3*x4
         x = self.fc(x)
         return x
@@ -90,46 +49,74 @@ class GRUCross(nn.Module):
         y = self.fc(h)
         return y
 
+class WidePerceptron1024(nn.Module):
+    def __init__(self, hidden_size = 1024):
+        super().__init__()
+        self.layer = nn.Sequential(
+            nn.Linear(6, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, 3)
+        )
+    def forward(self, x):
+        x = self.layer(x)
+        return x
 
-def generate_data():
+def generate_data(batch_size):
     return torch.randn(batch_size, 6, device='cuda')  *10
 
 
 
-def compute_cross(x):
+def compute_gt_cross(x):
     u = x[:, :3]
     v = x[:, 3:]
     return torch.linalg.cross(u, v)
 
 
-if __name__ == '__main__':
-    epoch_num = 1000
-    batch_size = 64
-    # model = Cross(num_layers=2, hidden_size=128)
-    model = GRUCross()
+def get_model(choose_model):
+    model = getattr(sys.modules[__name__], choose_model)()
+        
     model = model.cuda()  # Move model to GPU
+    return model
 
-    optim = torch.optim.Adam(model.parameters(), lr=1e-1)
+
+def train(choose_model, epoch_num = 400):
+    epoch_num = 400
+    batch_size = 64
+    model = get_model(choose_model)
+
+    optim = torch.optim.Adam(model.parameters(), lr=5e-1)
     criteria = torch.nn.MSELoss()
+
+    loss_container = []
     for epoch in range(epoch_num):
         optim.zero_grad()
-        x =generate_data()
-        y = model(x[:,:3],x[:,3:])
-        y_gt = compute_cross(x)  
+        x =generate_data(batch_size)
+        y = model(x)
+        y_gt = compute_gt_cross(x)  
         loss = criteria(y, y_gt)
         loss.backward()
         optim.step()
 
-        if epoch % 100 == 0:
-            print('-----------------')
-            print(f"Epoch {epoch}, loss: {loss.item()}")
+        if epoch % 20 == 0:
             with torch.no_grad():
-                x = generate_data()
-                y = model(x[:,:3],x[:,3:])
-                y_gt = compute_cross(x) 
+                x = generate_data(batch_size)
+                y = model(x)
+                y_gt = compute_gt_cross(x) 
+                loss_valid = criteria(y, y_gt)
+                loss_container.append(loss_valid.item())
+    return loss_container
 
-                print("y_gt: ", y_gt[0])
-                print("y: ", y[0])
+if __name__ == '__main__':
+    
+    test_model = ['MultiplyLayer32', 'WidePerceptron1024']
 
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for model in test_model:
+        loss_history = train(model)
+        ax.plot(loss_history, label=model)
+    ax.set_yscale('log')
+    ax.legend()
+    plt.show()
 
            
