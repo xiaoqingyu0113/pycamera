@@ -1,6 +1,7 @@
 defaults:
   - model: traj/phytune
-  - dataset: synthetic/nonoise_nospin_nobounce
+  - estimator: optim_layer
+  - dataset: synthetic/nonoise_consspin_nobounce
   - _self_
 
 task:

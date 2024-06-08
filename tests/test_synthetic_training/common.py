@@ -26,7 +26,7 @@ def get_summary_writer(config) -> Tuple[SummaryWriter, int]:
         
         return last_step
     
-    logdir = Path(config.model.logdir) / config.dataset.name
+    logdir = Path(config.model.logdir) 
     initial_step = 0
     if not logdir.exists():
         logdir.mkdir(parents=True)

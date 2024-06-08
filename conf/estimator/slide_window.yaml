@@ -1,0 +1,7 @@
+name: SlideWindowEstimator
+
+args: [none]
+
+kwargs:
+  size: 32
+  layer_dim: [128, 128,128,3]

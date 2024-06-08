@@ -1,0 +1,6 @@
+name: OptimLayer
+
+args: [none]
+
+kwargs:
+  size: 32
