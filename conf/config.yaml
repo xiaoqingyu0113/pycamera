@@ -1,5 +1,5 @@
 defaults:
-  - model: traj/mlayer
+  - model: traj/phytune
   - estimator: optim_layer
   - dataset: synthetic/nonoise_consspin_nobounce
   - _self_

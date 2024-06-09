@@ -16,8 +16,12 @@ class MLayer(nn.Module):
 
         self.m_layer_1 = nn.Linear(6, self.hidden_size)
         self.m_layer_2 = nn.Linear(6, self.hidden_size)
-        self.m_layer_dec = nn.Linear(self.hidden_size, 3)
 
+        self.m_layer_dec = nn.Sequential(nn.Linear(self.hidden_size, self.hidden_size),
+                                        nn.ReLU(),
+                                        nn.Linear(self.hidden_size, self.hidden_size),
+                                        nn.ReLU(),
+                                        nn.Linear(self.hidden_size, 3))
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -37,7 +41,7 @@ class MLayer(nn.Module):
         h2 = self.m_layer_2(wv)
         h = h1 * h2
          
-        acc = self.param1 * norm_v*v + self.m_layer_dec(h)
+        acc = self.m_layer_dec(h)
         return v + acc*dt, w
     
 

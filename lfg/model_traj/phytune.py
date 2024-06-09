@@ -13,6 +13,11 @@ class PhyTune(nn.Module):
         self.param2 =  nn.Parameter(torch.rand(1,1)*1e-6)
         self.param3 =  nn.Parameter(torch.rand(1,3)*1e-6)
 
+        self.mode_1_linear = nn.Linear(1, 1)
+        self.mode_2_linear = nn.Linear(1, 1)
+        self.sigmoid = nn.Sigmoid()
+
+        self.bc_linear = nn.Linear(6, 6)
 
     def forward(self, b, v, w, dt):
         '''
@@ -20,8 +25,18 @@ class PhyTune(nn.Module):
         '''
         norm_v = torch.linalg.norm(v, dim=-1, keepdim=True)
         cross_vw = torch.linalg.cross(v, w)
-        acc = self.param1 * norm_v*v + self.param2 * cross_vw + self.param3
-        return v + acc*dt, w
+        acc_mode_1 = self.param1 * norm_v*v + self.param2 * cross_vw + self.param3
+
+        vw_mode_2 = self.bc_linear(torch.cat([v, w], dim=-1))
+
+        gate1 = self.sigmoid(self.mode_1_linear(b))
+        gate2 = self.sigmoid(self.mode_2_linear(b))
+
+
+        v_new = gate1 *(v + acc_mode_1*dt) + gate2 * vw_mode_2[..., :3]
+        w_new = gate1 * w + gate2 * vw_mode_2[..., 3:]
+
+        return v_new, w_new
     
 
 def euler_updator(p, v, dt):
