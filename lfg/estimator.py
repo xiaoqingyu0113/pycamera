@@ -12,9 +12,9 @@ class OptimLayer(nn.Module):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        p_noise = 10e-3
-        v_noise = 0.1e-3
-        w_noise = 5e-3
+        p_noise = 0.010
+        v_noise = 0.001
+        w_noise = 1.0
 
         p_weight = th.DiagonalCostWeight(1.0/torch.tensor([p_noise, p_noise, p_noise]))
         wv_weight = th.DiagonalCostWeight(1.0/torch.tensor([v_noise, v_noise, v_noise, w_noise, w_noise, w_noise]))
@@ -79,9 +79,9 @@ class OptimLayer(nn.Module):
         dt = aux_vars[0]
 
         b0 = p0.tensor[:, 2:3]
-        v1, w1 = self.model(b0, v0.tensor, w0.tensor, dt.tensor)
+        v1_est, w1_est = self.model(b0, v0.tensor, w0.tensor, dt.tensor)
 
-        error = torch.cat([v1 - v0.tensor, w1 - w0.tensor], dim=-1)
+        error = torch.cat([v1_est - v1.tensor, w1_est - w1.tensor], dim=-1)
 
         return error
     
