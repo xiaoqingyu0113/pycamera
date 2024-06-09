@@ -33,8 +33,8 @@ class MLayer(nn.Module):
         '''
         norm_v = torch.linalg.norm(v, dim=-1, keepdim=True)
         wv = torch.cat([w, v], dim=-1)
-        h1 = self.m_layer_1(wv, dim=-1)
-        h2 = self.m_layer_2(wv, dim=-1)
+        h1 = self.m_layer_1(wv)
+        h2 = self.m_layer_2(wv)
         h = h1 * h2
          
         acc = self.param1 * norm_v*v + self.m_layer_dec(h)
