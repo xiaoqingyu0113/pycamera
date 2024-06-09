@@ -1,5 +1,5 @@
 defaults:
-  - model: traj/phytune
+  - model: traj/mlayer
   - estimator: optim_layer
   - dataset: synthetic/nonoise_consspin_nobounce
   - _self_
@@ -7,7 +7,7 @@ defaults:
 hydra:
   output_subdir: null
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: null
 
 task:
   generate_data: False
