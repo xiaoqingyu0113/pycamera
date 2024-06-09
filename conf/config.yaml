@@ -4,6 +4,11 @@ defaults:
   - dataset: synthetic/nonoise_consspin_nobounce
   - _self_
 
+hydra:
+  output_subdir: null
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
 task:
   generate_data: False
   train: True

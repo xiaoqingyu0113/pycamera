@@ -114,8 +114,12 @@ class OptimLayer(nn.Module):
             if i > 0:
                 sol.update({f'dt{i-1}': dtN[:,i-1:i]})
 
-        # with torch.no_grad():       
-        sol,info = self.layer(sol)
+        # with torch.no_grad():    
+        if self.allow_grad:   
+            sol,info = self.layer(sol)
+        else:
+            with torch.no_grad():
+                sol,info = self.layer(sol)
 
         return sol['p0'].unsqueeze(1), sol['v0'].unsqueeze(1), sol['w0'].unsqueeze(1)
     

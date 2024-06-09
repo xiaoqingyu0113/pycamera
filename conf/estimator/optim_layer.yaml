@@ -4,3 +4,4 @@ args: [none]
 
 kwargs:
   size: 32
+  allow_grad: True
