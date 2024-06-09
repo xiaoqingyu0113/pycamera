@@ -7,7 +7,7 @@ defaults:
 hydra:
   output_subdir: null
   run:
-    dir: null
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 task:
   generate_data: False
