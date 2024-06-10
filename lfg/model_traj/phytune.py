@@ -19,6 +19,19 @@ class PhyTune(nn.Module):
 
         self.bc_linear = nn.Linear(6, 6)
 
+        self.apply(self._init_weights)
+
+        # print('.........................')
+        # for name, param in self.named_parameters():
+        #     print(name, param)
+        # print('.........................')
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=1e-3)
+            if module.bias is not None:
+                module.bias.data.zero_()
+
     def forward(self, b, v, w, dt):
         '''
         input can be [b,3] or [b,1,3]

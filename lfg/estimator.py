@@ -116,10 +116,10 @@ class OptimLayer(nn.Module):
 
         # with torch.no_grad():    
         if self.allow_grad:   
-            sol,info = self.layer(sol)
+            sol,info = self.layer(sol, {'damping': self.damping})
         else:
             with torch.no_grad():
-                sol,info = self.layer(sol)
+                sol,info = self.layer(sol,{'damping': self.damping})
 
         return sol['p0'].unsqueeze(1), sol['v0'].unsqueeze(1), sol['w0'].unsqueeze(1)
     

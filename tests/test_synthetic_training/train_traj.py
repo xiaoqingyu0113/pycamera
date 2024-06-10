@@ -28,13 +28,23 @@ from synthetic.data_generator import generate_data
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def print_cfg(cfg):
+    from collections import defaultdict
+    from colorama import Fore, Style, init
+    init(autoreset=True)
+    def default_styles():
+        return Fore.WHITE
+    styles = defaultdict(default_styles)
+    styles.update({'name': Fore.GREEN,
+                   'lr_init': Fore.LIGHTBLUE_EX,
+                   'continue_training': Fore.LIGHTRED_EX,})
+
     checklist = ['model', 'estimator', 'dataset', 'task']
     for k in checklist:
         print('\n')
         print('#'*15 + f' {k} config ' + '#'*15)
         cf_k = cfg[k]
         for kk, vv in cf_k.items():
-            print(f'{kk}: {vv}')
+            print(styles[kk] + f'{kk}: {vv}')
         print('#'*15 + f' {k} ' + '(END)' + '#'*15)
 
 class TrajectoryDataset(Dataset):
