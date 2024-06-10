@@ -14,8 +14,8 @@ class MLayer(nn.Module):
 
         self.param1 =  nn.Parameter(torch.rand(1,1)*1e-6)
 
-        self.m_layer_1 = nn.Linear(6, self.hidden_size)
-        self.m_layer_2 = nn.Linear(6, self.hidden_size)
+        self.m_layer_1 = nn.Linear(8, self.hidden_size)
+        self.m_layer_2 = nn.Linear(8, self.hidden_size)
 
         self.m_layer_dec = nn.Sequential(nn.Linear(self.hidden_size, self.hidden_size),
                                         nn.ReLU(),
@@ -35,10 +35,11 @@ class MLayer(nn.Module):
         '''
         input can be [b,3] or [b,1,3]
         '''
-        norm_v = torch.linalg.norm(v, dim=-1, keepdim=True)
-        wv = torch.cat([w, v], dim=-1)
-        h1 = self.m_layer_1(wv)
-        h2 = self.m_layer_2(wv)
+        identity = torch.ones_like(b, device=DEVICE)
+        x = torch.cat([identity, b, v, w], dim=-1)
+        # wv = torch.cat([w, v], dim=-1)
+        h1 = self.m_layer_1(x)
+        h2 = self.m_layer_2(x)
         h = h1 * h2
          
         acc = self.m_layer_dec(h)

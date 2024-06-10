@@ -7,7 +7,7 @@ args:
   - none
   - none
 kwargs:
-  hidden_size: 64
+  hidden_size: 128
 
 # data augmentation  
 add_noise: 10e-3
