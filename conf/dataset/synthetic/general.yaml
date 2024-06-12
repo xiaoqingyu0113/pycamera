@@ -14,3 +14,5 @@ dw0: [10, 30, 10]
 uv_noise: 3 # px
 t_max: 1.0 # sec
 seq_len: 200
+z0: 0.0 # bounce of table
+batch_size: 16

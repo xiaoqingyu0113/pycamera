@@ -5,4 +5,5 @@ args: [none]
 kwargs:
   size: 32
   allow_grad: True
-  damping: 0.01
+  damping: 1.0
+  max_iterations: 10

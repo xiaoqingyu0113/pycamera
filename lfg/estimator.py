@@ -60,7 +60,7 @@ class OptimLayer(nn.Module):
                                                    aux_vars=[vars[f'w_prior{0}']],
                                                    cost_weight= th.ScaleCostWeight(torch.tensor(1.0/w_noise))))
 
-        self.optimizer = th.LevenbergMarquardt(objective, max_iterations=10)
+        self.optimizer = th.LevenbergMarquardt(objective, max_iterations=self.max_iterations)
         self.layer = th.TheseusLayer(self.optimizer)
         self.layer.to(DEVICE)
 

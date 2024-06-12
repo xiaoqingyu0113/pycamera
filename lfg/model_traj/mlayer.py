@@ -18,8 +18,10 @@ class MLayer(nn.Module):
         self.m_layer_2 = nn.Linear(8, self.hidden_size)
 
         self.m_layer_dec = nn.Sequential(nn.Linear(self.hidden_size, self.hidden_size),
+                                        nn.BatchNorm1d(self.hidden_size),
                                         nn.ReLU(),
                                         nn.Linear(self.hidden_size, self.hidden_size),
+                                        nn.BatchNorm1d(self.hidden_size),
                                         nn.ReLU(),
                                         nn.Linear(self.hidden_size, 3))
         self.apply(self._init_weights)
@@ -35,14 +37,19 @@ class MLayer(nn.Module):
         '''
         input can be [b,3] or [b,1,3]
         '''
+        shapes = v.shape
+
         identity = torch.ones_like(b, device=DEVICE)
         x = torch.cat([identity, b, v, w], dim=-1)
         # wv = torch.cat([w, v], dim=-1)
         h1 = self.m_layer_1(x)
         h2 = self.m_layer_2(x)
         h = h1 * h2
-         
+        
+        h = h.view(shapes[0], -1)
         acc = self.m_layer_dec(h)
+        acc.view(shapes)
+
         return v + acc*dt, w
     
 
