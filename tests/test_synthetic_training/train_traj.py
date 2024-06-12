@@ -164,7 +164,7 @@ def train_loop(cfg):
     opt_params = list(model.parameters()) + list(est.parameters()) if cfg.estimator.name == 'SlideWindowEstimator' \
                 else list(model.parameters())
     
-    optimizer = torch.optim.Adam(opt_params, lr=cfg.model.lr_init)
+    optimizer = torch.optim.Adam(opt_params, lr=cfg.model.lr_init, weight_decay=1e-4)
     criterion = nn.MSELoss()
 
     best_valid_loss = torch.inf

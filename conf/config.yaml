@@ -1,7 +1,7 @@
 defaults:
   - model: traj/mlayer
   - estimator: optim_layer
-  - dataset: synthetic/conssin
+  - dataset: synthetic/consspin
   - _self_
 
 hydra:

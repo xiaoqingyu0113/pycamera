@@ -18,13 +18,17 @@ class MLayer(nn.Module):
         self.m_layer_2 = nn.Linear(8, self.hidden_size)
 
         self.m_layer_dec = nn.Sequential(nn.Linear(self.hidden_size, self.hidden_size),
-                                        nn.BatchNorm1d(self.hidden_size),
                                         nn.ReLU(),
                                         nn.Linear(self.hidden_size, self.hidden_size),
-                                        nn.BatchNorm1d(self.hidden_size),
                                         nn.ReLU(),
                                         nn.Linear(self.hidden_size, 3))
         self.apply(self._init_weights)
+
+        self._mu_v = torch.tensor([0.0, 3.0, 1.5], device=DEVICE)
+        self._std_v = torch.tensor([0.5, 1.0, 1.0] , device=DEVICE)
+        self._mu_w = torch.tensor([10.0, 0.0, 0.0], device=DEVICE)
+        self._std_w = torch.tensor([10, 30, 10], device=DEVICE)
+
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -37,24 +41,33 @@ class MLayer(nn.Module):
         '''
         input can be [b,3] or [b,1,3]
         '''
-        shapes = v.shape
+        
+        v = (v - self._mu_v) / self._std_v
+        w = (w - self._mu_w) / self._std_w
 
         identity = torch.ones_like(b, device=DEVICE)
         x = torch.cat([identity, b, v, w], dim=-1)
-        # wv = torch.cat([w, v], dim=-1)
+
+    
         h1 = self.m_layer_1(x)
         h2 = self.m_layer_2(x)
         h = h1 * h2
-        
-        h = h.view(shapes[0], -1)
-        acc = self.m_layer_dec(h)
-        acc.view(shapes)
 
-        return v + acc*dt, w
+        acc = self.m_layer_dec(h)
+
+        
+        return (v + acc*dt)*self._std_v + self._mu_v, w * self._std_w + self._mu_w
     
 
 def euler_updator(p, v, dt):
     return p + v*dt
+
+
+
+def _normalize(x, mu, d):
+    return (x - mu) / d
+def _unnormalize(x, mu, d):
+    return x * d + mu
 
 def autoregr_MLayer(data, model, est, cfg):
     '''
