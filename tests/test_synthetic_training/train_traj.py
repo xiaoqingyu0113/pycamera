@@ -62,23 +62,11 @@ class TrajectoryDataset(Dataset):
         data_got = self.data[mask, :]
         data_got[:, 2:5] += torch.randn_like(data_got[:, 2:5])*self.noise
 
-        data_got = self._augment_data(data_got)
+        # data_got = self._augment_data(data_got)
 
         return data_got
 
-    def _augment_data(self, data):
-        '''
-        rotate the data along z axis randomly from 0 to 2pi
-        use device = DEVICE
-        '''
-        theta = torch.rand(1,device=DEVICE )*2* torch.pi
-        rot_mat = torch.tensor([[torch.cos(theta), -torch.sin(theta), 0],
-                                [torch.sin(theta), torch.cos(theta), 0],
-                                [0, 0, 1]], device=DEVICE)
-        data[:, 2:5] = torch.matmul(data[:, 2:5] - data[0, 2:5], rot_mat) + data[0, 2:5]
-        data[:, 5:8] = torch.matmul(data[:, 5:8], rot_mat)
-        data[:, 8:11] = torch.matmul(data[:, 8:11], rot_mat)
-        return data
+    
 
 
     @classmethod
@@ -155,6 +143,24 @@ def visualize_traj(model, est, autoregr, data, cfg):
     model.train()
     return fig
 
+def augment_data( data):
+        '''
+        data = [batch, seq_len, 11]
+        rotate the data along z axis randomly from 0 to 2pi
+        use device = DEVICE
+        '''
+        theta = torch.rand(1,device=DEVICE )*2* torch.pi
+        rot_mat = torch.tensor([[torch.cos(theta), -torch.sin(theta), 0],
+                                [torch.sin(theta), torch.cos(theta), 0],
+                                [0, 0, 1]], device=DEVICE).float()
+        rot_mat = rot_mat.unsqueeze(0).repeat(data.shape[0], 1, 1)
+        p_xyz = data[:,:,2:5]
+        p_xyz = torch.matmul(p_xyz - p_xyz[:,0:1,:], rot_mat) + p_xyz[:,0:1,:]
+        data[:,:,2:5] = p_xyz
+        data[:,:,8:11] = torch.matmul(data[:,:,8:11], rot_mat)
+        data[:,:,5:8] = torch.matmul(data[:,:,5:8], rot_mat)
+        return data
+
 def train_loop(cfg):
 
     # print out config info
@@ -187,6 +193,7 @@ def train_loop(cfg):
     best_valid_loss = torch.inf
     for epoch in range(cfg.model.num_epochs):
         for i, data in enumerate(train_loader):
+            data = augment_data(data)
             optimizer.zero_grad()
             loss = compute_loss(model,est, autoregr, data, criterion, cfg)
             loss.backward()
