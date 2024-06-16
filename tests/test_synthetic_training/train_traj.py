@@ -61,7 +61,24 @@ class TrajectoryDataset(Dataset):
         mask = torch.isin(self.data[:, 0].int(), idx_tensor.int())
         data_got = self.data[mask, :]
         data_got[:, 2:5] += torch.randn_like(data_got[:, 2:5])*self.noise
+
+        data_got = self._augment_data(data_got)
+
         return data_got
+
+    def _augment_data(self, data):
+        '''
+        rotate the data along z axis randomly from 0 to 2pi
+        use device = DEVICE
+        '''
+        theta = torch.rand(1,device=DEVICE )*2* torch.pi
+        rot_mat = torch.tensor([[torch.cos(theta), -torch.sin(theta), 0],
+                                [torch.sin(theta), torch.cos(theta), 0],
+                                [0, 0, 1]], device=DEVICE)
+        data[:, 2:5] = torch.matmul(data[:, 2:5] - data[0, 2:5], rot_mat) + data[0, 2:5]
+        data[:, 5:8] = torch.matmul(data[:, 5:8], rot_mat)
+        data[:, 8:11] = torch.matmul(data[:, 8:11], rot_mat)
+        return data
 
 
     @classmethod
@@ -164,7 +181,7 @@ def train_loop(cfg):
     opt_params = list(model.parameters()) + list(est.parameters()) if cfg.estimator.name == 'SlideWindowEstimator' \
                 else list(model.parameters())
     
-    optimizer = torch.optim.Adam(opt_params, lr=cfg.model.lr_init, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(opt_params, lr=cfg.model.lr_init, weight_decay=1e-3)
     criterion = nn.MSELoss()
 
     best_valid_loss = torch.inf

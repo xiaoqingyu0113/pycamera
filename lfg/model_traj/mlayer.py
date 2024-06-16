@@ -21,7 +21,7 @@ class MLayer(nn.Module):
                                         nn.ReLU(),
                                         nn.Linear(self.hidden_size, self.hidden_size),
                                         nn.ReLU(),
-                                        nn.Linear(self.hidden_size, 3))
+                                        nn.Linear(self.hidden_size, 6))
         self.apply(self._init_weights)
 
         self._mu_v = torch.tensor([0.0, 3.0, 1.5], device=DEVICE)
@@ -42,8 +42,8 @@ class MLayer(nn.Module):
         input can be [b,3] or [b,1,3]
         '''
         
-        v = (v - self._mu_v) / self._std_v
-        w = (w - self._mu_w) / self._std_w
+        v = _normalize(v, self._mu_v, self._std_v)
+        w = _normalize(w, self._mu_w, self._std_w)
 
         identity = torch.ones_like(b, device=DEVICE)
         x = torch.cat([identity, b, v, w], dim=-1)
@@ -55,8 +55,10 @@ class MLayer(nn.Module):
 
         acc = self.m_layer_dec(h)
 
-        
-        return (v + acc*dt)*self._std_v + self._mu_v, w * self._std_w + self._mu_w
+        v_new = _unnormalize(v + acc[...,:3] * dt, self._mu_v, self._std_v)
+        w_new = _unnormalize(w + acc[..., 3:] * dt, self._mu_w, self._std_w)
+
+        return v_new, w_new
     
 
 def euler_updator(p, v, dt):
