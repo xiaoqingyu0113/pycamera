@@ -1,7 +1,7 @@
 defaults:
   - model: traj/phytune
   - estimator: optim_layer
-  - dataset: synthetic/consspin
+  - dataset: synthetic/nonoise_consspin_nobounce
   - _self_
 
 hydra:
