@@ -39,13 +39,17 @@ def print_cfg(cfg):
                    'continue_training': Fore.LIGHTRED_EX,})
 
     checklist = ['model', 'estimator', 'dataset', 'task']
+
+    txt = ''
     for k in checklist:
-        print('\n')
-        print('#'*15 + f' {k} config ' + '#'*15)
+        txt += '\n'
+        txt += '#'*15 + f' {k} config ' + '#'*15 + '\n'
         cf_k = cfg[k]
         for kk, vv in cf_k.items():
-            print(styles[kk] + f'{kk}: {vv}')
-        print('#'*15 + f' {k} ' + '(END)' + '#'*15)
+            txt += f'{kk}: {vv}\n'
+        txt += '#'*15 + f' {k} ' + '(END)' + '#'*15 + '\n'
+    print(txt)
+
 
 class TrajectoryDataset(Dataset):
     def __init__(self, csv_file, noise=0.0):
@@ -171,6 +175,7 @@ def train_loop(cfg):
 
     # get summary writer
     tb_writer, initial_step = get_summary_writer(cfg)
+    tb_writer.add_text('config', f'```yaml\n{OmegaConf.to_yaml(cfg)}\n```')
 
     # get model
     model, est, autoregr = get_model(cfg)

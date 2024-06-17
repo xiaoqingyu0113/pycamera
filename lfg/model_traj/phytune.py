@@ -19,6 +19,8 @@ class PhyTune(nn.Module):
 
         self.bc_linear = nn.Linear(6, 6)
 
+
+
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -38,7 +40,8 @@ class PhyTune(nn.Module):
         vw_mode_2 = self.bc_linear(torch.cat([v, w], dim=-1))
 
         gate1 = self.sigmoid(self.mode_1_linear(b))
-        gate2 = self.sigmoid(self.mode_2_linear(b))
+        gate2 = 1.0 - gate1 # special case for softmax
+
 
 
         v_new = gate1 *(v + acc_mode_1*dt) + gate2 * vw_mode_2[..., :3]
