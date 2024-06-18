@@ -4,7 +4,7 @@ camera_data: camera_consspin.csv
 trajectory_data: traj_consspin.csv
 
 
-total_traj_num: 500
+total_traj_num: 5000
 p0: [0.5, -2.4, 0.4] # m
 dp0: [0.1, 0.1, 0.1]
 v0:  [0.0, 3.0, 1.5] # m/s
@@ -13,6 +13,6 @@ w0: [10.0, 20.0, 0.0] # hz
 dw0: [0.01, 0.01, 0.01] 
 uv_noise: 3 # px
 t_max: 1.0 # sec
-batch_size: 16
+batch_size: 32
 seq_len: 200
 z0: 0.0 # bounce of table

@@ -28,16 +28,6 @@ from synthetic.data_generator import generate_data
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def print_cfg(cfg):
-    from collections import defaultdict
-    from colorama import Fore, Style, init
-    init(autoreset=True)
-    def default_styles():
-        return Fore.WHITE
-    styles = defaultdict(default_styles)
-    styles.update({'name': Fore.GREEN,
-                   'lr_init': Fore.LIGHTBLUE_EX,
-                   'continue_training': Fore.LIGHTRED_EX,})
-
     checklist = ['model', 'estimator', 'dataset', 'task']
 
     txt = ''
@@ -65,9 +55,6 @@ class TrajectoryDataset(Dataset):
         mask = torch.isin(self.data[:, 0].int(), idx_tensor.int())
         data_got = self.data[mask, :]
         data_got[:, 2:5] += torch.randn_like(data_got[:, 2:5])*self.noise
-
-        # data_got = self._augment_data(data_got)
-
         return data_got
 
     
@@ -129,18 +116,20 @@ def compute_valid_loss(model, est, autoregr, test_loader, criterion, cfg):
 
 def visualize_traj(model, est, autoregr, data, cfg):
     model.eval()
-    single_data = data[0:1,:,:]
+    single_data = data[:3,:,:]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     with torch.no_grad():
         pN_est = autoregr(single_data, model, est, cfg)
         pN_gt = single_data[:, :, 2:5]
-        pN_gt = pN_gt.cpu().numpy().squeeze()
-        pN_est_i = pN_est.cpu().numpy().squeeze()
+        pN_gt = pN_gt.cpu().numpy()
+        pN_est = pN_est.cpu().numpy()
 
-        ax.plot(pN_gt[:, 0], pN_gt[:, 1], pN_gt[:, 2], label='gt')
-        ax.plot(pN_est_i[:, 0], pN_est_i[:, 1], pN_est_i[:, 2], label='est')
+        for batch in range(single_data.shape[0]):
+            ax.plot(pN_gt[batch, :, 0], pN_gt[batch, :, 1], pN_gt[batch, :, 2], label=f'gt_{batch}')
+            ax.plot(pN_est[batch, :, 0], pN_est[batch, :, 1], pN_est[batch, :, 2], label=f'est_{batch}')
+
         ax.legend()
         draw_util.set_axes_equal(ax, zoomin=2.0)
 
@@ -198,10 +187,13 @@ def train_loop(cfg):
     best_valid_loss = torch.inf
     for epoch in range(cfg.model.num_epochs):
         for i, data in enumerate(train_loader):
-            data = augment_data(data)
+            if cfg.model.augment_data:
+                data = augment_data(data)
             optimizer.zero_grad()
             loss = compute_loss(model,est, autoregr, data, criterion, cfg)
             loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
             optimizer.step()
             tb_writer.add_scalars('loss', {'training': loss.item()}, initial_step)
             initial_step += 1
@@ -212,7 +204,8 @@ def train_loop(cfg):
         if epoch % cfg.model.valid_interval == 0:
             valid_loss = compute_valid_loss(model,est, autoregr, test_loader, criterion, cfg)
             tb_writer.add_scalars('loss', {'validation': valid_loss}, initial_step)
-            tb_writer.add_figure('visualization', visualize_traj(model, est, autoregr, next(iter(test_loader)), cfg), initial_step)
+            tb_writer.add_figure('plot_train', visualize_traj(model, est, autoregr, data, cfg), initial_step)
+            tb_writer.add_figure('plot_validate', visualize_traj(model, est, autoregr, next(iter(test_loader)), cfg), initial_step)
             print(f'epoch: {epoch} validation loss: {valid_loss}')
 
             if valid_loss < best_valid_loss:

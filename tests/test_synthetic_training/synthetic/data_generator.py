@@ -113,6 +113,6 @@ def generate_camera_data_with_noise(cfg):
 
 def generate_data(cfg):
     generate_synthetic_trajectory_data(cfg)
-    generate_camera_data_with_noise(cfg)
+    # generate_camera_data_with_noise(cfg)
 
 

@@ -1,7 +1,7 @@
 defaults:
-  - model: traj/phytune
+  - model: traj/mlayer
   - estimator: optim_layer
-  - dataset: synthetic/nonoise_consspin_nobounce
+  - dataset: synthetic/consspin
   - _self_
 
 hydra:
@@ -10,7 +10,7 @@ hydra:
     dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 task:
-  generate_data: False
+  generate_data: True
   train: True
 
 camera:

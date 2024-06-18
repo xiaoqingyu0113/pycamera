@@ -40,17 +40,17 @@ class PhyTune(nn.Module):
 
         vw_mode_2 = self.bc_linear(torch.cat([v, w], dim=-1))
 
-        gate1 = self.sigmoid(self.mode_1_linear(b))
+        gate1 = self.sigmoid(self.mode_1_linear(b)+ 10.0)
         gate2 = 1.0 - gate1 # special case for softmax
    
 
-        # v_new = gate1 *(v + acc_mode_1*dt) + gate2 * vw_mode_2[..., :3]
-        # w_new = gate1 * w + gate2 * vw_mode_2[..., 3:]
+        v_new = gate1 *(v + acc_mode_1*dt) + gate2 * vw_mode_2[..., :3]
+        w_new = gate1 * w + gate2 * vw_mode_2[..., 3:]
 
         # hard switch
-        condition = gate1 > gate2
-        v_new = torch.where(condition, v + acc_mode_1 * dt, vw_mode_2[..., :3])
-        w_new = torch.where(condition, w, vw_mode_2[..., 3:])
+        # condition = gate1 > gate2
+        # v_new = torch.where(condition, v + acc_mode_1 * dt, vw_mode_2[..., :3])
+        # w_new = torch.where(condition, w, vw_mode_2[..., 3:])
 
         return v_new, w_new
     
