@@ -19,33 +19,52 @@ class PhyTune(nn.Module):
 
         self.bc_linear = nn.Linear(6, 6)
 
+        self.bc_linear.weight.data.set_(torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                                      [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                                                      [0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
+                                                      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                                                      [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                                                      [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]))
+        self.bc_linear.bias.data.set_(torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
 
+    #     self.apply(self._init_weights)
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=1e-3)
-            if module.bias is not None:
-                module.bias.data.zero_()
+    # def _init_weights(self, module):
+    #     if isinstance(module, nn.Linear):
+    #         module.weight.data.normal_(mean=0.1, std=1e-3)
+    #         if module.bias is not None:
+    #             module.bias.data.zero_()
 
     def forward(self, b, v, w, dt):
         '''
         input can be [b,3] or [b,1,3]
         '''
+
+
+        # check bounce
+        # set ground truth bouncing condition
+        condition1 = b < 0.0
+        condition2 = v[..., 2:3] < 0.0
+        condition = torch.logical_and(condition1, condition2)
+        vw_bc = self.bc_linear(torch.cat([v, w], dim=-1))
+
+        v =   torch.where(condition, vw_bc[..., :3], v)
+        w =   torch.where(condition, vw_bc[..., 3:], w)
+
         norm_v = torch.linalg.norm(v, dim=-1, keepdim=True)
         cross_vw = torch.linalg.cross(v, w)
         acc_mode_1 = self.param1 * norm_v*v + self.param2 * cross_vw + self.param3
 
 
-        vw_mode_2 = self.bc_linear(torch.cat([v, w], dim=-1))
+        v_new = v + acc_mode_1 * dt
+        w_new = w
+        
 
-        gate1 = self.sigmoid(self.mode_1_linear(b)+ 10.0)
-        gate2 = 1.0 - gate1 # special case for softmax
-   
-
-        v_new = gate1 *(v + acc_mode_1*dt) + gate2 * vw_mode_2[..., :3]
-        w_new = gate1 * w + gate2 * vw_mode_2[..., 3:]
+        # soft switch
+        # gate1 = self.sigmoid(self.mode_1_linear(b)+ 10.0)
+        # gate2 = 1.0 - gate1 # special case for softmax
+        # v_new = gate1 *(v + acc_mode_1*dt) + gate2 * vw_mode_2[..., :3]
+        # w_new = gate1 * w + gate2 * vw_mode_2[..., 3:]
 
         # hard switch
         # condition = gate1 > gate2
