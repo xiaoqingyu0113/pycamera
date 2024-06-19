@@ -17,15 +17,12 @@ class PhyTune(nn.Module):
         self.mode_2_linear = nn.Linear(1, 1)
         self.sigmoid = nn.Sigmoid()
 
-        self.bc_linear = nn.Linear(6, 6)
+        self.bc_linear = nn.Sequential(nn.Linear(6, 6),
+                                        nn.ReLU(),
+                                        nn.Linear(6, 6),
+                        )
 
-        self.bc_linear.weight.data.set_(torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                                      [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-                                                      [0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
-                                                      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-                                                      [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-                                                      [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]))
-        self.bc_linear.bias.data.set_(torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+ 
 
     #     self.apply(self._init_weights)
 

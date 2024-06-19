@@ -11,9 +11,14 @@ setup(
     # package_data={
     #     'mcf4pingpong': ['darknet/*'],
     # },
-    # install_requires=[
-    #     'PyYAML',
-    #     'numpy'
-    # ],
-    # extras_require={'plotting': ['matplotlib']},
+    install_requires=[
+        'PyYAML',
+        'numpy',
+        'matplotlib',
+        'tqdm',
+        'hydra-core',
+        'omegaconf',
+        'numba'
+    ],
+    extras_require={'plotting': ['matplotlib']},
 )
