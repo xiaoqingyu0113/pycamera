@@ -1,6 +1,6 @@
 # names and directories
 name: MLayer
-logdir: "logdir/traj_train/${model.name}/${dataset.name}/${estimator.name}" # logdir/${model_name}/${dataset name}/run{x}/
+logdir: "logdir/traj_train/${model.name}/${model.loss_type}/${dataset.name}/${estimator.name}" # logdir/${model_name}/${dataset name}/run{x}/
 
 # model initialization
 args:
@@ -26,3 +26,5 @@ training_data_split: 0.8
 r_est: none # ratio of data for estimation
 valid_interval: 10 # validation interval in epochs
 continue_training: False
+
+loss_type: 'vel' # 'vel' or 'pos' or mixed by '+' e.g. 'vel+pos'

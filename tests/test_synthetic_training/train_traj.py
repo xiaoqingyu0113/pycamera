@@ -101,8 +101,25 @@ def get_model(cfg):
 def compute_loss(model, est, autoregr, data, criterion,cfg):
     pN_est = autoregr(data, model, est, cfg)
     pN_gt = data[:, :,2:5]
-    loss = criterion(pN_est, pN_gt)
+
+    loss = 0.0
+
+    if 'pos' in cfg.model.loss_type:
+        loss += criterion(pN_est, pN_gt)
+
+    if 'vel' in cfg.model.loss_type:
+        d_pN_est = torch.diff(pN_est, dim=1)
+        d_pN_gt = torch.diff(pN_gt, dim=1)
+        loss += criterion(d_pN_est, d_pN_gt)
+    
+    if 'acc' in cfg.model.loss_type :
+        dd_pN_est = torch.diff(torch.diff(pN_est, dim=1), dim=1)
+        dd_pN_gt = torch.diff(torch.diff(pN_gt, dim=1), dim=1)
+        loss += criterion(dd_pN_est, dd_pN_gt)
+    
+
     return loss
+
 
 def compute_valid_loss(model, est, autoregr, test_loader, criterion, cfg):
     model.eval()  # Set the model to evaluation mode
