@@ -110,12 +110,12 @@ def compute_loss(model, est, autoregr, data, criterion,cfg):
     if 'vel' in cfg.model.loss_type:
         d_pN_est = torch.diff(pN_est, dim=1)
         d_pN_gt = torch.diff(pN_gt, dim=1)
-        loss += criterion(d_pN_est, d_pN_gt)
+        loss += criterion(d_pN_est, d_pN_gt)*100.0
     
     if 'acc' in cfg.model.loss_type :
         dd_pN_est = torch.diff(torch.diff(pN_est, dim=1), dim=1)
         dd_pN_gt = torch.diff(torch.diff(pN_gt, dim=1), dim=1)
-        loss += criterion(dd_pN_est, dd_pN_gt)
+        loss += criterion(dd_pN_est, dd_pN_gt)*100.0
     
 
     return loss
