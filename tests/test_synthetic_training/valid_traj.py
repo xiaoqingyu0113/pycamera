@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from draw_util import draw_util
 import matplotlib.pyplot as plt
 
-from common import load_csv, get_summary_writer
+from common import load_csv, get_summary_writer, get_summary_writer_path
 
 from typing import Dict, List, Tuple
 from omegaconf import OmegaConf
@@ -171,106 +171,86 @@ def augment_data( data):
         data[:,:,5:8] = torch.matmul(data[:,:,5:8], rot_mat)
         return data
 
-def small_param_thresh(model):
-    threshold = 1e-10  # Define a threshold
-    for name, param in model.named_parameters():
-        with torch.no_grad():
-            param.data = torch.where(param.data.abs() < threshold, torch.tensor(threshold, dtype=param.data.dtype), param.data)
 
-def train_loop(cfg):
+def hessian_test(model:torch.nn.modules, est, autoregr, test_loader, criterion, cfg):
+    # from torch.autograd.functional import hessian, jacobian
+    from torch.autograd import grad
 
+    def model_functional_wrapper(input):
+
+        model.param1 = nn.Parameter(input[0].view(1,1))
+        model.param2 = nn.Parameter(input[1].view(1,1))
+        model.param3 = nn.Parameter(input[2:5].view(1,3))
+        model.param4 = nn.Parameter(input[5])
+        model.param5 = nn.Parameter(input[6])
+        model.param6 = nn.Parameter(input[7])
+
+
+        loss = compute_loss(model, est, autoregr, next(iter(test_loader)), criterion, cfg)
+        return loss
+    
+    inputs = torch.cat([p.view(-1) for p in model.parameters()])
+    loss = model_functional_wrapper(inputs)
+    grads = grad(loss, model.parameters(), create_graph=True)
+    
+    print(grads)
+    grads_flat = torch.cat([g.view(-1) for g in grads])
+    n = grads_flat.size(0)
+
+    # Initialize the Hessian matrix
+    H = torch.zeros(n, n)
+
+    for idx in range(n):
+        grad2 = grad(grads_flat[idx], model.parameters(), retain_graph=True)
+        grad2_flat = torch.cat([g.view(-1) for g in grad2])
+        H[idx] = grad2_flat
+
+    H = H.detach()
+    print(H)
+    eigens = torch.linalg.eigvals(H)
+    print(f'eig(H): {eigens}')
+
+
+
+def validate(cfg):
+
+    cfg.model.continue_training=True
     # print out config info
     print_cfg(cfg)
     
     # get dataloaders
     train_loader, test_loader = TrajectoryDataset.get_dataloaders(cfg)
 
-    # get summary writer
-    tb_writer, initial_step = get_summary_writer(cfg)
-    tb_writer.add_text('config', f'```yaml\n{OmegaConf.to_yaml(cfg)}\n```',global_step=initial_step)
-
     # get model
     model, est, autoregr = get_model(cfg)
-    if cfg.model.continue_training:
-        model_path = Path(tb_writer.get_logdir())/f'model_{cfg.model.name}.pth'
-        model.load_state_dict(torch.load(model_path))
-        print(f"model loaded from {model_path}")
+    model._init_gt() # set ground truth for model
+    model.cuda()
 
-        if cfg.estimator.name != 'GT':
-            est_path = Path(tb_writer.get_logdir())/f'est_{cfg.estimator.name}.pth'
-            est.load_state_dict(torch.load(est_path))
-            print(f"est loaded from {est_path}")
-
-
-    opt_params = list(model.parameters()) + list(est.parameters()) if cfg.estimator.name != 'GT' \
-                else model.parameters()
+    # load from save
+    # model_path = get_summary_writer_path(cfg)/f'model_{cfg.model.name}.pth'
+    # model.load_state_dict(torch.load(model_path))
     
-    optimizer = torch.optim.Adam(opt_params, lr=cfg.model.lr_init, weight_decay=1e-3, eps=1e-5)
     criterion = nn.MSELoss()
 
-    best_valid_loss = torch.inf
-    for epoch in range(cfg.model.num_epochs):
-        for i, data in enumerate(train_loader):
-            if cfg.model.augment_data:
-                data = augment_data(data)
-            est_size = 0 if cfg.estimator.name == 'GT' else cfg.estimator.kwargs.size
-            N_seq = max(int(data.shape[1] * cfg.model.seq_ratio), est_size)
-            data = data[:, :N_seq, :] 
+    data = next(iter(train_loader))
+    if cfg.model.augment_data:
+        data = augment_data(data)
 
-            optimizer.zero_grad()
-            loss = compute_loss(model,est, autoregr, data, criterion, cfg)
-            loss.backward()
-            
-            # Print gradients of each parameter
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
-                else:
-                    print(f"Parameter: {name} has no gradient")
-            for name, param in est.named_parameters():
-                if param.grad is not None:
-                    print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
-                else:
-                    print(f"Parameter: {name} has no gradient")
-
-
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0, norm_type = 2.0, error_if_nonfinite=True)
-            optimizer.step()
-            small_param_thresh(model)
-            
-            tb_writer.add_scalars('loss', {'training': loss.item()}, initial_step)
-            initial_step += 1
-            if i % 1 == 0:
-                print(f'epoch: {epoch} iter: {i} training loss: {loss.item()}')
-
-
-        if epoch % cfg.model.valid_interval == 0:
-            valid_loss = compute_valid_loss(model,est, autoregr, test_loader, criterion, cfg)
-            tb_writer.add_scalars('loss', {'validation': valid_loss}, initial_step)
-            tb_writer.add_figure('plot_train', visualize_traj(model, est, autoregr, data, cfg), initial_step)
-            tb_writer.add_figure('plot_validate', visualize_traj(model, est, autoregr, next(iter(test_loader)), cfg), initial_step)
-            print(f'epoch: {epoch} validation loss: {valid_loss}')
-
-
-            if valid_loss < best_valid_loss:
-                best_valid_loss = valid_loss
-                model_path = Path(tb_writer.get_logdir())/f'model_{cfg.model.name}.pth'
-                torch.save(model.state_dict(), model_path)
-                print(f"model saved to {model_path}")
-
-                if cfg.estimator.name == 'SlideWindowEstimator':
-                    est_path = Path(tb_writer.get_logdir())/f'est_{cfg.estimator.name}.pth'
-                    torch.save(est.state_dict(), est_path)
-                    print(f"est saved to {est_path}")
     
+    # hessian_test(model, est, autoregr, test_loader, criterion, cfg)
+    valid_loss = compute_valid_loss(model, est, autoregr, test_loader, criterion, cfg)
+
+    print(f'Validation Loss: {valid_loss}')
+
+    from synthetic.predictor import predict_trajectory
+    fig = visualize_traj(model, est, autoregr, data, cfg)
+    plt.show()
+
 
 
 @hydra.main(version_base=None, config_path='../../conf', config_name='config')
 def main(cfg):
-    if cfg.task.generate_data:
-        generate_data(cfg)
-    if cfg.task.train:
-        train_loop(cfg)
+    validate(cfg)
     
 
 

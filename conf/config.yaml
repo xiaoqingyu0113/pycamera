@@ -1,7 +1,7 @@
 defaults:
   - model: traj/phytune
   - estimator: optim_layer
-  - dataset: synthetic/consspin
+  - dataset: synthetic/general
   - _self_
 
 hydra:
@@ -10,7 +10,7 @@ hydra:
     dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 task:
-  generate_data: True
+  generate_data: true
   train: True
 
 camera:

@@ -16,11 +16,17 @@ class OptimLayer(nn.Module):
         v_noise = 0.001
         w_noise = 1.0
 
-        p_weight = th.DiagonalCostWeight(1.0/torch.tensor([p_noise, p_noise, p_noise]))
-        wv_weight = th.DiagonalCostWeight(1.0/torch.tensor([v_noise, v_noise, v_noise, w_noise, w_noise, w_noise]))
+        self.p_weight_param = nn.Parameter(1.0/torch.tensor([p_noise, p_noise, p_noise]))
+        self.wv_weight_param = nn.Parameter(1.0/torch.tensor([v_noise, v_noise, v_noise, w_noise, w_noise, w_noise]))
+        self.w0_noise = nn.Parameter(1.0/torch.tensor([w_noise, w_noise, w_noise]))
 
+        self._build_graph()
+        
 
-
+    def _build_graph(self):
+        p_weight = th.DiagonalCostWeight(self.p_weight_param)
+        wv_weight = th.DiagonalCostWeight(self.wv_weight_param)
+        w0_weight = th.DiagonalCostWeight(self.w0_noise)
 
         # objective and variables
         objective = th.Objective()
@@ -58,11 +64,12 @@ class OptimLayer(nn.Module):
                                                    self._error_pos_prior, # same procedure
                                                    3, 
                                                    aux_vars=[vars[f'w_prior{0}']],
-                                                   cost_weight= th.ScaleCostWeight(torch.tensor(1.0/w_noise))))
+                                                   cost_weight= w0_weight))
 
-        self.optimizer = th.LevenbergMarquardt(objective, max_iterations=self.max_iterations)
-        self.layer = th.TheseusLayer(self.optimizer)
-        self.layer.to(DEVICE)
+        optimizer = th.LevenbergMarquardt(objective, max_iterations=self.max_iterations)
+        layer = th.TheseusLayer(optimizer)
+        return layer
+        # self.layer.to(DEVICE)
 
     def _error_pos_prior(self, optim_vars, aux_vars):
         p0, = optim_vars
@@ -114,12 +121,14 @@ class OptimLayer(nn.Module):
             if i > 0:
                 sol.update({f'dt{i-1}': dtN[:,i-1:i]})
 
-        # with torch.no_grad():    
+        
+        layer = self._build_graph()
+        layer.to(x.device)
         if self.allow_grad:   
-            sol,info = self.layer(sol, {'damping': self.damping})
+            sol,info = layer(sol, {'damping': self.damping})
         else:
             with torch.no_grad():
-                sol,info = self.layer(sol,{'damping': self.damping})
+                sol,info = layer(sol,{'damping': self.damping})
 
         return sol['p0'].unsqueeze(1), sol['v0'].unsqueeze(1), sol['w0'].unsqueeze(1)
     

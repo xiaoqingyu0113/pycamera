@@ -24,7 +24,7 @@ def predict_trajectory(p0, v0, w0, tspan,z0=0.0, C_d=0.1196, C_m=0.015, mu = 0.2
             else:
                 v = bounce_roll_velocity_forward(v,w,[mu,ez]).flatten()
                 w = bounce_roll_spin_forward(v,w,[mu,ez]).flatten()
-            l[2] = 0.0 # bounce reset
+            # l[2] = 0.0 # bounce reset
             xN[i,:3] = location_forward(l,v,t,t_now).flatten()
             xN[i,3:6] = velocity_forward(v,w,t,t_now,[C_d, C_m]).flatten()
             xN[i,6:] = w
