@@ -237,6 +237,7 @@ def train_loop(cfg):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0, norm_type = 2.0, error_if_nonfinite=True)
             optimizer.step()
             small_param_thresh(model)
+            small_param_thresh(est)
             
             tb_writer.add_scalars('loss', {'training': loss.item()}, initial_step)
             initial_step += 1
