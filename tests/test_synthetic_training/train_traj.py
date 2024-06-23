@@ -244,7 +244,8 @@ def train_loop(cfg):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0, norm_type = 2.0, error_if_nonfinite=True)
             optimizer.step()
             Constraint.small_param_thresh(model)
-            Constraint.positive_param(est)
+            if cfg.estimator.name != 'GT':
+                Constraint.positive_param(est)
             
             tb_writer.add_scalars('loss', {'training': loss.item()}, initial_step)
             initial_step += 1
