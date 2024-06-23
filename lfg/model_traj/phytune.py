@@ -24,7 +24,7 @@ class PhyTune(nn.Module):
     def _init_gt(self):
         self.param1 =  nn.Parameter(torch.tensor([[0.1196]])) # C_d
         self.param2 =  nn.Parameter(torch.tensor([[0.015]])) # C_m
-        self.param3 =  nn.Parameter(torch.tensor([[0.0,0.0,-9.81]]))
+        self.param3 =  nn.Parameter(torch.tensor([[0.0,0.0,0.0]]))
 
         self.param4 = nn.Parameter(torch.tensor(0.22)) # mu
         self.param5 = nn.Parameter(torch.tensor(0.79)) # ez
