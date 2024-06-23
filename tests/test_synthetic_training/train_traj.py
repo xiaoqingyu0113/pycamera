@@ -171,11 +171,17 @@ def augment_data( data):
         data[:,:,5:8] = torch.matmul(data[:,:,5:8], rot_mat)
         return data
 
-def small_param_thresh(model):
-    threshold = 1e-10  # Define a threshold
-    for name, param in model.named_parameters():
-        with torch.no_grad():
-            param.data = torch.where(param.data.abs() < threshold, torch.tensor(threshold, dtype=param.data.dtype), param.data)
+class Constraint:
+    def small_param_thresh(model):
+        threshold = 1e-10  # Define a threshold
+        for name, param in model.named_parameters():
+            with torch.no_grad():
+                param.data = torch.where(param.data.abs() < threshold, torch.tensor(threshold, dtype=param.data.dtype), param.data)
+    def positive_param(model):
+        for name, param in model.named_parameters():
+            with torch.no_grad():
+                param.data = torch.where(param.data < 0, torch.tensor(0.0, dtype=param.data.dtype), param.data)
+
 
 def train_loop(cfg):
 
@@ -236,8 +242,8 @@ def train_loop(cfg):
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0, norm_type = 2.0, error_if_nonfinite=True)
             optimizer.step()
-            small_param_thresh(model)
-            small_param_thresh(est)
+            Constraint.small_param_thresh(model)
+            Constraint.positive_param(est)
             
             tb_writer.add_scalars('loss', {'training': loss.item()}, initial_step)
             initial_step += 1
