@@ -86,10 +86,10 @@ class PhyBounce(nn.Module):
 
         norm_v = torch.linalg.norm(v, dim=-1, keepdim=True)
         cross_vw = torch.linalg.cross(w, v)
-        acc_mode_1 = -self.param1 * norm_v*v + self.param2 * cross_vw + self.param3 + torch.tensor([0.0, 0.0, -9.81], device=DEVICE).view(1,3)
+        acc = -self.param1 * norm_v*v + self.param2 * cross_vw + self.param3 + torch.tensor([0.0, 0.0, -9.81], device=DEVICE).view(1,3)
 
 
-        v_new = v + acc_mode_1 * dt
+        v_new = v + acc * dt
         w_new = w
         
 

@@ -173,14 +173,15 @@ def augment_data( data):
 
 class Constraint:
     def small_param_thresh(model):
-        threshold = 1e-10  # Define a threshold
+        threshold = 1e-20  # Define a threshold
         for name, param in model.named_parameters():
             with torch.no_grad():
                 param.data = torch.where(param.data.abs() < threshold, torch.tensor(threshold, dtype=param.data.dtype), param.data)
     def positive_param(model):
         for name, param in model.named_parameters():
-            with torch.no_grad():
-                param.data = torch.where(param.data < 0, torch.tensor(0.0, dtype=param.data.dtype), param.data)
+            if 'model' not in name:
+                with torch.no_grad():
+                    param.data = torch.where(param.data < 0.0, torch.tensor(0.0, dtype=param.data.dtype), param.data)
 
 
 def train_loop(cfg):
@@ -208,7 +209,7 @@ def train_loop(cfg):
             print(f"est loaded from {est_path}")
 
 
-    opt_params = list(model.parameters()) + list(est.parameters()) if cfg.estimator.name != 'GT' \
+    opt_params = list(model.parameters()) + [p for n, p in est.named_parameters() if 'model' not in n] if cfg.estimator.name != 'GT' \
                 else model.parameters()
     
     optimizer = torch.optim.Adam(opt_params, lr=cfg.model.lr_init, weight_decay=1e-3, eps=1e-5)
@@ -228,9 +229,10 @@ def train_loop(cfg):
             loss.backward()
             
             # Print gradients of each parameter
-            print(f"params1, value: {model.param1}, grad: {model.param1.grad}")
-            print(f"params2, value: {model.param2}, grad: {model.param2.grad}")
-            print(f"params3, value: {model.param3}, grad: {model.param3.grad}")
+            print(f"params1, value: {model.param1}")
+            print(f"params2, value: {model.param2}")
+            print(f"params3, value: {model.param3}")
+
             # for name, param in model.named_parameters():
             #     if param.grad is not None:
             #         print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
@@ -247,9 +249,10 @@ def train_loop(cfg):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0, norm_type = 2.0, error_if_nonfinite=True)
             optimizer.step()
             Constraint.small_param_thresh(model)
+
+
             if cfg.estimator.name != 'GT':
                 Constraint.positive_param(est)
-            
             tb_writer.add_scalars('loss', {'training': loss.item()}, initial_step)
             initial_step += 1
             if i % 1 == 0:
@@ -270,7 +273,7 @@ def train_loop(cfg):
                 torch.save(model.state_dict(), model_path)
                 print(f"model saved to {model_path}")
 
-                if cfg.estimator.name == 'SlideWindowEstimator':
+                if cfg.estimator.name != 'GT':  
                     est_path = Path(tb_writer.get_logdir())/f'est_{cfg.estimator.name}.pth'
                     torch.save(est.state_dict(), est_path)
                     print(f"est saved to {est_path}")
