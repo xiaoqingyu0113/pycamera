@@ -228,17 +228,20 @@ def train_loop(cfg):
             loss.backward()
             
             # Print gradients of each parameter
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
-                else:
-                    print(f"Parameter: {name} has no gradient")
-            if cfg.estimator.name != 'GT':
-                for name, param in est.named_parameters():
-                    if param.grad is not None:
-                        print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
-                    else:
-                        print(f"Parameter: {name} has no gradient")
+            print(f"params1, value: {model.param1}, grad: {model.param1.grad}")
+            print(f"params2, value: {model.param2}, grad: {model.param2.grad}")
+            print(f"params3, value: {model.param3}, grad: {model.param3.grad}")
+            # for name, param in model.named_parameters():
+            #     if param.grad is not None:
+            #         print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
+            #     else:
+            #         print(f"Parameter: {name} has no gradient")
+            # if cfg.estimator.name != 'GT':
+            #     for name, param in est.named_parameters():
+            #         if param.grad is not None:
+            #             print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
+            #         else:
+            #             print(f"Parameter: {name} has no gradient")
 
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0, norm_type = 2.0, error_if_nonfinite=True)

@@ -1,6 +1,6 @@
 defaults:
-  - model: traj/phytune
-  - estimator: optim_layer
+  - model: traj/phybounce
+  - estimator: gt
   - dataset: synthetic/general
   - _self_
 

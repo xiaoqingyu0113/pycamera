@@ -1,5 +1,5 @@
 # names and directories
-name: PhyTune
+name: PhyGate
 logdir: "logdir/traj_train/${model.name}/${model.loss_type}/${dataset.name}/${estimator.name}" # logdir/${model_name}/${dataset name}/run{x}/
 
 # model initialization
@@ -24,7 +24,7 @@ lr_init: 1e-3
 training_data_split: 0.8
 
 valid_interval: 10 # validation interval in epochs
-continue_training: True
+continue_training: false
 
 # loss
 loss_type: 'pos' # 'vel' or 'pos' or mixed by '+' e.g. 'vel+pos'
