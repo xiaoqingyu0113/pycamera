@@ -18,6 +18,37 @@ class Norm(nn.Module):
         x = self.fc1(x)
         return x
         
+class MNN(nn.Module):
+    def __init__(self, hidden_size=32):
+        super().__init__()
+        hidden_size = 16
+        self.layer1 = nn.Sequential(
+            nn.Linear(6, hidden_size),
+            nn.LeakyReLU()
+        )
+        self.layer2 = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU()
+        )
+        self.layer3 = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU()
+        )
+        self.dec = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_size, 1)
+        )
+    def forward(self, x):
+        x = x/ 50.0
+        x = self.layer1(x)
+        x = x + self.layer2(x)*x
+        x = x + self.layer3(x)*x
+        x = self.dec(x)*50.0
+        return x
+        
 def generate_data():
     return torch.randn(batch_size, 6, device='cuda')  *100-50
 
@@ -28,12 +59,13 @@ def compute_norm(x):
 
 
 if __name__ == '__main__':
-    epoch_num = 1000
-    batch_size = 64
-    model = Norm(num_layers=4, hidden_size=128)
+    epoch_num = 400
+    batch_size = 16
+    # model = Norm(num_layers=4, hidden_size=128)
+    model= MNN()
     model = model.cuda()  # Move model to GPU
 
-    optim = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optim = torch.optim.Adam(model.parameters(), lr=3e-2)
     criteria = torch.nn.MSELoss()
     for epoch in range(epoch_num):
         optim.zero_grad()

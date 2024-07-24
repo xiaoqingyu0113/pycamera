@@ -6,24 +6,6 @@ import matplotlib.pyplot as plt
 
 
 
-
-# class SpatialGatingUnit(nn.Module):
-#     def __init__(self, d_ffn, seq_len):
-#         super().__init__()
-#         self.norm = nn.LayerNorm(d_ffn)
-#         self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
-#         nn.init.constant_(self.spatial_proj.bias, 1.0)
-
-#     def forward(self, x):
-#         u, v = x.chunk(2, dim=-1)
-#         v = self.norm(v)
-#         v = self.spatial_proj(v)
-#         out = u * v
-#         return out
-    
-
-
-
 class MultiplyLayer32(nn.Module):
     def __init__(self, hidden_size=32):
         super().__init__()
@@ -39,15 +21,36 @@ class MultiplyLayer32(nn.Module):
         x = self.fc(x)
         return x
 
-class GRUCross(nn.Module):
-    def __init__(self):
+class MNN(nn.Module):
+    def __init__(self, hidden_size=32):
         super().__init__()
-        self.gru = nn.GRUCell(3,3)
-        self.fc = nn.Linear(3,3)
-    def forward(self, x, h):
-        h = self.gru(x,h)
-        y = self.fc(h)
-        return y
+        hidden_size = 16
+        self.layer1 = nn.Sequential(
+            nn.Linear(6, hidden_size),
+            nn.LeakyReLU()
+        )
+        self.layer2 = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU()
+        )
+        self.layer3 = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU()
+        )
+        self.dec = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_size, 3)
+        )
+    def forward(self, x):
+        x = x/10.0
+        x = self.layer1(x)
+        x = x + self.layer2(x)*x
+        x = x + self.layer3(x)*x
+        x = self.dec(x) 
+        return x
 
 class WidePerceptron1024(nn.Module):
     def __init__(self, hidden_size = 1024):
@@ -81,10 +84,10 @@ def get_model(choose_model):
 
 def train(choose_model, epoch_num = 400):
     epoch_num = 400
-    batch_size = 64
+    batch_size = 16
     model = get_model(choose_model)
 
-    optim = torch.optim.Adam(model.parameters(), lr=5e-1)
+    optim = torch.optim.Adam(model.parameters(), lr=1e-3)
     criteria = torch.nn.MSELoss()
 
     loss_container = []
@@ -104,19 +107,23 @@ def train(choose_model, epoch_num = 400):
                 y_gt = compute_gt_cross(x) 
                 loss_valid = criteria(y, y_gt)
                 loss_container.append(loss_valid.item())
+                compared = torch.cat([y, y_gt], dim=-1)
+                print(compared)
     return loss_container
 
 if __name__ == '__main__':
     
     test_model = ['MultiplyLayer32', 'WidePerceptron1024']
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    for model in test_model:
-        loss_history = train(model)
-        ax.plot(loss_history, label=model)
-    ax.set_yscale('log')
-    ax.legend()
-    plt.show()
+    loss_history = train('MNN')
+    print(loss_history)
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # for model in test_model:
+    #     loss_history = train(model)
+    #     ax.plot(loss_history, label=model)
+    # ax.set_yscale('log')
+    # ax.legend()
+    # plt.show()
 
            

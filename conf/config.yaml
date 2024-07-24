@@ -1,5 +1,5 @@
 defaults:
-  - model: traj/phybounce
+  - model: traj/mnn
   - estimator: gt
   - dataset: synthetic/general
   - _self_
@@ -12,6 +12,7 @@ hydra:
 task:
   generate_data: true
   train: True
+
 
 camera:
   folder: conf/camera

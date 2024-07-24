@@ -27,6 +27,8 @@ from synthetic.data_generator import generate_data
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+
+
 def print_cfg(cfg):
     checklist = ['model', 'estimator', 'dataset', 'task']
 
@@ -171,12 +173,16 @@ def augment_data( data):
         data[:,:,5:8] = torch.matmul(data[:,:,5:8], rot_mat)
         return data
 
+
+
 class Constraint:
     def small_param_thresh(model):
         threshold = 1e-20  # Define a threshold
         for name, param in model.named_parameters():
             with torch.no_grad():
-                param.data = torch.where(param.data.abs() < threshold, torch.tensor(threshold, dtype=param.data.dtype), param.data)
+                param.data = torch.where(param.data < -threshold,param.data, torch.tensor(-threshold, dtype=param.data.dtype))
+                param.data = torch.where(param.data > threshold, param.data, torch.tensor(threshold, dtype=param.data.dtype))
+
     def positive_param(model):
         for name, param in model.named_parameters():
             if 'model' not in name:
@@ -188,6 +194,8 @@ def train_loop(cfg):
 
     # print out config info
     print_cfg(cfg)
+    # torch.set_num_threads(cfg.dataset.num_workers) 
+
     
     # get dataloaders
     train_loader, test_loader = TrajectoryDataset.get_dataloaders(cfg)
@@ -198,6 +206,12 @@ def train_loop(cfg):
 
     # get model
     model, est, autoregr = get_model(cfg)
+    model.aero_layer.load_state_dict(torch.load('aero_model.pth',map_location=DEVICE))
+    model.bc_layer.load_state_dict(torch.load('bounce_model.pth',map_location=DEVICE))
+
+    if cfg.estimator.name != 'GT':
+        est.model = model
+
     if cfg.model.continue_training:
         model_path = Path(tb_writer.get_logdir())/f'model_{cfg.model.name}.pth'
         model.load_state_dict(torch.load(model_path))
@@ -206,6 +220,7 @@ def train_loop(cfg):
         if cfg.estimator.name != 'GT':
             est_path = Path(tb_writer.get_logdir())/f'est_{cfg.estimator.name}.pth'
             est.load_state_dict(torch.load(est_path))
+            est.model = model
             print(f"est loaded from {est_path}")
 
 
@@ -213,7 +228,7 @@ def train_loop(cfg):
                 else model.parameters()
     
     optimizer = torch.optim.Adam(opt_params, lr=cfg.model.lr_init, weight_decay=1e-3, eps=1e-5)
-    criterion = nn.MSELoss()
+    criterion = nn.L1Loss()
 
     best_valid_loss = torch.inf
     for epoch in range(cfg.model.num_epochs):
@@ -227,28 +242,18 @@ def train_loop(cfg):
             optimizer.zero_grad()
             loss = compute_loss(model,est, autoregr, data, criterion, cfg)
             loss.backward()
-            
-            # Print gradients of each parameter
-            print(f"params1, value: {model.param1}")
-            print(f"params2, value: {model.param2}")
-            print(f"params3, value: {model.param3}")
+                       
 
             # for name, param in model.named_parameters():
-            #     if param.grad is not None:
-            #         print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
-            #     else:
-            #         print(f"Parameter: {name} has no gradient")
-            # if cfg.estimator.name != 'GT':
-            #     for name, param in est.named_parameters():
-            #         if param.grad is not None:
-            #             print(f"Parameter: {name}, Value: {param.data}, Gradient: {param.grad}")
-            #         else:
-            #             print(f"Parameter: {name} has no gradient")
+            #     if 'aero' in name and 'dec.4' in name:
+            #         print(name, param)
+
+
 
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0, norm_type = 2.0, error_if_nonfinite=True)
             optimizer.step()
-            Constraint.small_param_thresh(model)
+            # Constraint.small_param_thresh(model)
 
 
             if cfg.estimator.name != 'GT':

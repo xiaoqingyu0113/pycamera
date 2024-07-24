@@ -116,10 +116,10 @@ class OptimLayer(nn.Module):
             p = pN[:, i, :]
             sol.update({f'p_prior{i}': p.clone()})
             sol.update({f'p{i}': p.clone()})
-            sol.update({f'v{i}': torch.zeros_like(p, device=DEVICE)})
+            sol.update({f'v{i}': torch.rand_like(p, device=DEVICE)})
             sol.update({f'w{i}': w0.clone()})
             if i > 0:
-                sol.update({f'dt{i-1}': dtN[:,i-1:i]})
+                sol.update({f'dt{i-1}': dtN[:,i-1:i].clone()})
 
         
         layer = self._build_graph()

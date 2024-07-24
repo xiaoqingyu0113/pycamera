@@ -3,7 +3,7 @@ name: OptimLayer
 args: [none]
 
 kwargs:
-  size: 32
+  size: 50
   allow_grad: false
-  damping: 0.1
+  damping: 0.01
   max_iterations: 10
