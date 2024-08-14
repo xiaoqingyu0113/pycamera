@@ -1,0 +1,2 @@
+# pycamera
+custom camera object
