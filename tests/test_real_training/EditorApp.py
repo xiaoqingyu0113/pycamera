@@ -10,7 +10,7 @@ import json
 import matplotlib as mlp
 
 from pycamera import triangulate, CameraParam, set_axes_equal
-
+from draw_util import draw_util
 
 class ImageAndPlotViewer:
     def __init__(self, root):
@@ -294,7 +294,18 @@ class ImageAndPlotViewer:
             elif key == 'd':
                 self.detections[camera][tid].insert(did, data)
                 print('undo delete')
+            elif key == 'x':
+                # insert the whole trajectory to tid index
+                self.detections[camera].insert(tid, data)
+                print('undo delete whole trajectory')
     
+    def delete_whole_trajectory(self):
+        tid, did = self.clicked
+        camera = self.selected_camera.get()
+        if len(self.detections[camera][tid]) > 0:
+            self.prev_opera.append(['x', [tid, did, self.detections[camera][tid]]])
+            self.detections[camera].pop(tid)
+
     def on_key(self, event):
         key = event.keysym
         if key == 'd':
@@ -303,7 +314,8 @@ class ImageAndPlotViewer:
             self.delete_to_end()
         if key == 'u':
             self.undo_operation()
-
+        if key == 'x':
+            self.delete_whole_trajectory()
         img = Image.open(f"data/real/bg/{self.selected_camera.get()}.jpg")
         self.draw_detections_on_image(img, self.detections[self.selected_camera.get()])
         self.display_image(img)
@@ -397,7 +409,7 @@ class ImageAndPlotViewer:
             self.tids = None
             self.times = None
     
-
+        
     
     def create_3d_plot(self):
 
@@ -418,8 +430,12 @@ class ImageAndPlotViewer:
                 mask = self.tids == tid
                 self.ax.plot(self.pos[mask, 0], self.pos[mask, 1], self.pos[mask, 2], color=color, label=f'tid={tid}')
             set_axes_equal(self.ax)
+            draw_util.draw_pinpong_table_outline(self.ax)
             self.ax.legend()
             self.ax.set_title('Triangulated 3D plot')
+            # set view angle
+            self.ax.view_init(elev=30, azim=165)
+
             
         # Embed the plot in the Tkinter window
         if self.canvas:

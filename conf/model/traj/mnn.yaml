@@ -18,6 +18,7 @@ add_noise: 5e-3
 # training
 seed: 42
 num_epochs: 300
+warm_start: true
 
 ## lr scheduler
 lr_init: 1e-3

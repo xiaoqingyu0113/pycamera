@@ -258,7 +258,7 @@ def test_bounce_training():
         print('w_new_N:', w_new_N[i])
         print('-------------------')
 
-    torch.save(model.state_dict(), 'bounce_model.pth')
+    torch.save(model.state_dict(), 'data/archive/bounce_model.pth')
 
 
 def compare():
@@ -274,7 +274,7 @@ def compare():
     w_new_N = w_new_N.to('cuda')
 
     model = TestModel3()
-    model.load_state_dict(torch.load('bounce_model.pth'))
+    model.load_state_dict(torch.load('data/archive/bounce_model.pth'))
     model = model.to('cuda')
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
@@ -313,13 +313,13 @@ def tmp():
     w_local = torch.cat([w_local, w[2:3]], dim=-1)
   
     model = TestModel3()
-    model.load_state_dict(torch.load('bounce_model.pth'))
+    model.load_state_dict(torch.load('data/archive/bounce_model.pth'))
 
     v_new, w_new = model(v.unsqueeze(0), w.unsqueeze(0)) 
 
 
     model2 = TestModel2()
-    model2.load_state_dict(torch.load('bounce_model.pth'))
+    model2.load_state_dict(torch.load('data/archive/bounce_model.pth'))
     # print(f"model 2 input v : {v_local}")
     # print(f"model 2 input w : {w_local}")
 

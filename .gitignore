@@ -163,3 +163,12 @@ logdir
 *.pth
 outputs
 *.csv
+
+*.avi
+*.webm
+*local.jpg
+*.weights
+
+# files below should not be ignored
+!data/archive/*
+!data/real/triangulated/*.csv

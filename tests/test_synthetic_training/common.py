@@ -51,29 +51,6 @@ def get_summary_writer(config) -> Tuple[SummaryWriter, int]:
     '''
         Get the summary writer
     '''
-    
-    # logdir = Path(config.model.logdir) 
-    # initial_step = 0
-    # if not logdir.exists():
-    #     logdir.mkdir(parents=True)
-    #     tb_writer = SummaryWriter(log_dir=logdir / 'run00')
-    # else:
-    #     # get the largest number of run in the logdir using pathlib
-    #     paths = list(logdir.glob('*run*'))
-    #     indices = [int(str(p).split('run')[-1]) for p in paths]
-
-    #     if len(indices) == 0:
-    #         max_run_num = 0
-    #     else:
-    #         max_run_num = max(indices)
-    #     if config.model.continue_training:
-    #         tb_writer = SummaryWriter(log_dir=logdir / f'run{max_run_num:02d}')
-    #         rundir = logdir/f'run{max_run_num:02d}'/'loss_training'
-    #         rundir = list(rundir.glob('events.out.tfevents.*'))
-    #         initial_step = max([find_writer_last_step(str(rd)) for rd in rundir])
-    #     else:
-    #         tb_writer = SummaryWriter(log_dir=logdir / f'run{1+max_run_num:02d}')
-
     initial_step = 0
     run_path = get_summary_writer_path(config)
     tb_writer = SummaryWriter(log_dir=run_path)

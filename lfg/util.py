@@ -1,11 +1,15 @@
 import time
 import contextlib
 import numpy as np
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from matplotlib.figure import Figure
 import torch
 from typing import Dict, List, Tuple
+import csv
+from pathlib import Path
+import tensorflow as tf
 from pycamera import CameraParam, triangulate
+
 
 def plot_to_tensorboard(writer:SummaryWriter, tag:str, figure:Figure, global_step:int):
     """
@@ -73,100 +77,61 @@ def compute_stamped_triangulations(data:np.ndarray, camera_param_dict:Dict[str, 
     return np.hstack((stamp.reshape(-1, 1), positions))
 
 
-class KalmanFilter:
-    def __init__(self, x0 = None,  q_noise = 0.010, r_noise=0.010, p0_noise=0.010, device='cpu'):
-        """
-        Initialize the Kalman Filter.
-        Args:
-        - H (torch.Tensor): Observation matrix.
-        - Q (torch.Tensor): Process noise covariance matrix.
-        - R (torch.Tensor): Measurement noise covariance matrix.
-        - x0 (torch.Tensor): Initial state estimate.
-        - P0 (torch.Tensor): Initial covariance estimate.
-        """
-        self.device = device    
-        self.H = torch.tensor([[1, 0, 0, 0, 0, 0],
-                               [0, 1, 0, 0, 0, 0],
-                               [0, 0, 1, 0, 0, 0]], dtype=torch.float32, device=device)
+
+def load_csv(file_path:str) -> np.ndarray:
+    with open(file_path, 'r') as f:
+        reader = csv.reader(f)
+        data = list(reader)
+    return np.array(data, dtype=float)
 
 
-        self.Q = torch.eye(6, dtype=torch.float32, device=device) * q_noise  # Process noise covariance
-        self.R = torch.eye(3, dtype=torch.float32, device=device) * r_noise  # Measurement noise covariance
 
-        self.x = x0  # State estimate
-        self.P = torch.eye(6, dtype=torch.float32, device=device)  # Covariance estimate
+def find_writer_last_step(event_file_path):
+        last_step = -1
+        try:
+            for e in tf.compat.v1.train.summary_iterator(event_file_path):
+                if e.step > last_step:
+                    last_step = e.step
+        except Exception as e:
+            print(f"Failed to read event file {event_file_path}: {str(e)}")
+        
+        return last_step
 
-    def predict(self, dt, g=9.81):
-        """
-        Predict the next state and estimate covariance.
-        Args:
-        - dt (float): Time step to the next prediction.
-        - g (float): Acceleration due to gravity, positive downwards.
-        """
-        # Dynamic state transition matrix F
-        F = torch.tensor([
-            [1, 0, 0, dt,  0,  0],
-            [0, 1, 0,  0, dt,  0],
-            [0, 0, 1,  0,  0, dt],
-            [0, 0, 0,  1,  0,  0],
-            [0, 0, 0,  0,  1,  0],
-            [0, 0, 0,  0,  0,  1]
-        ], dtype=torch.float32, device=self.device)
+def get_summary_writer_path(config):
+    logdir = Path(config.model.logdir) 
 
-        # Control input vector u influenced by gravity
-        u = torch.tensor([0, 0, 0.5 * g * dt**2, 0, 0, g * dt], dtype=torch.float32, device=self.device)
+    if not logdir.exists():
+        logdir.mkdir(parents=True)
+        ret_path =logdir / 'run00'
+    else:
+        # get the largest number of run in the logdir using pathlib
+        paths = list(logdir.glob('*run*'))
+        indices = [int(str(p).split('run')[-1]) for p in paths]
 
-        # Control input matrix G
-        G = torch.tensor([0, 0, 0, 0, 0, 1], dtype=torch.float32, device=self.device)
-
-
-        # Predict next state
-        self.x = F @ self.x + G * u
-        self.P = F @ self.P @ F.T + self.Q
-
-    def update(self, z):
-        """
-        Update the state estimate from a new measurement.
-        Args:
-        - z (torch.Tensor): Measurement vector.
-        """
-        S = self.H @ self.P @ self.H.T + self.R
-        K = self.P @ self.H.T @ torch.inverse(S)
- 
-        y = z - self.H @ self.x
-        self.x = self.x + K @ y
-        self.P = (torch.eye(self.H.size(1), dtype=torch.float32, device=self.device) - K @ self.H) @ self.P
-
-    def smooth(self,meas: torch.Tensor, dt):
-        if self.x is None:
-            self.x = torch.cat((meas, torch.zeros(3, dtype=torch.float32, device=self.device)),dim=0) 
-            return self.x
+        if len(indices) == 0:
+            max_run_num = 0
         else:
-            self.predict(dt)
-            self.update(meas)
-            return self.x
+            max_run_num = max(indices)
 
-if __name__ == '__main__':
-    kf = KalmanFilter(q_noise=0.01, r_noise=0.01, p0_noise=0.001, device='cpu')
-    t = torch.linspace(0, 1.0, 100) + 0.004 * torch.randn(100)
-    v0 = torch.tensor([2.0, 1.0, 0.0], dtype=torch.float32)
-    pos = v0[None, :] * t[:, None] + 0.5 * torch.tensor([0.0, 3.0, -9.81], dtype=torch.float32)[None, :] * t[:, None]**2
-    p  = torch.cat((t[:,None], pos + torch.rand_like(pos)*0.030), dim=1) 
-    dt = torch.diff(t)
-    xN = []
-    for i in range(1,100):
-        x = kf.smooth(p[i, 1:], dt[i-1])
-        xN.append(x)
+        if config.model.continue_training:
+            ret_path =logdir / f'run{max_run_num:02d}'    
+        else:
+            ret_path =logdir / f'run{1+max_run_num:02d}'
 
-    xN = torch.stack(xN, dim=0)
-    print(xN)
+    return ret_path
 
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    p = p.numpy()
-    xN = xN.numpy()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot(p[:,1], p[:,2], p[:,3], label='True')
-    ax.plot(xN[:,0], xN[:,1], xN[:,2], label='Kalman')
-    ax.legend()
-    plt.show()
+def get_summary_writer(config) -> Tuple[SummaryWriter, int]:
+    '''
+        Get the summary writer
+    '''
+    initial_step = 0
+    run_path = get_summary_writer_path(config)
+    tb_writer = SummaryWriter(log_dir=run_path)
+
+    # update initial step if continue training
+    if config.model.continue_training:
+        loss_dir = run_path/'loss_training'
+        loss_dir = list(loss_dir.glob('events.out.tfevents.*'))
+        initial_step = max([find_writer_last_step(str(rd)) for rd in loss_dir])
+
+    return tb_writer, initial_step

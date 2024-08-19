@@ -12,9 +12,9 @@ class OptimLayer(nn.Module):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        p_noise = 0.010
+        p_noise = 0.050
         v_noise = 0.001
-        w_noise = 1.0
+        w_noise = 0.1
 
         self.p_weight_param = nn.Parameter(1.0/torch.tensor([p_noise, p_noise, p_noise]))
         self.wv_weight_param = nn.Parameter(1.0/torch.tensor([v_noise, v_noise, v_noise, w_noise, w_noise, w_noise]))

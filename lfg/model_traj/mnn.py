@@ -136,7 +136,7 @@ class BounceModel(nn.Module):
 
         # normalize
         v_normalize = v_local / 3.0
-        w_normalize = w_local / (30.0*torch.pi*2)
+        w_normalize = w_local / 7.0
 
         x = torch.cat([v_normalize, w_normalize], dim=-1)
         x = self.layer1(x)
@@ -146,8 +146,8 @@ class BounceModel(nn.Module):
         # unnormalize
         v2d_local_new = x[..., :2] * 3.0
         vz_new = x[..., 2:3] * 3.0
-        w2d_local_new = x[..., 3:5] * (30.0*torch.pi*2)
-        wz_new = x[..., 5:6] * (30.0*torch.pi*2)
+        w2d_local_new = x[..., 3:5] * 7.0
+        wz_new = x[..., 5:6] * 7.0
 
         v2d_new = torch.matmul(R2d, v2d_local_new.unsqueeze(-1)).squeeze(-1)
         w2d_new = torch.matmul(R2d, w2d_local_new.unsqueeze(-1)).squeeze(-1)
@@ -268,15 +268,14 @@ def autoregr_MNN(data, model, est, cfg):
     w0 = data[:, 0:1, 8:11]
 
     print(f"p0_gt : {p0[0]}")
-    print(f"v0_gt : {v0[0]}")
-    print(f"w0_gt : {w0[0]}")
+    # print(f"v0_gt : {v0[0]}")
+    # print(f"w0_gt : {w0[0]}")
 
     if est is not None:
         p0, v0, w0 = est(data[:,:est.size,1:5], w0=w0)
-
         print(f"p0_est : {p0[0]}")
-        print(f"v0_est : {v0[0]}")
-        print(f"w0_est : {w0[0]}")    
+        # print(f"v0_est : {v0[0]}")
+        # print(f"w0_est : {w0[0]}")    
 
     # raise
     d_tN = torch.diff(tN, dim=1)

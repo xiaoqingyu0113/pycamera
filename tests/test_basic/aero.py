@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from bounce import TestModel2 as BC_Model
 
-device = torch.device("cuda:2")
+device = torch.device("cuda:0")
 torch.manual_seed(0)
 
 def generate_data():
@@ -317,10 +317,10 @@ def train_loop(task='train'):
 
                 print('--------')
                 
-        torch.save(model.state_dict(), 'aero_model.pth')
+        torch.save(model.state_dict(), 'data/archive/aero_model.pth')
 
     if task == 'test':
-        model.load_state_dict(torch.load('aero_model.pth'))
+        model.load_state_dict(torch.load('data/archive/aero_model.pth'))
         model.eval()
         with torch.no_grad():
             for i, data in enumerate(test_loader):

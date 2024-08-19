@@ -1,0 +1,10 @@
+name: real
+folder: data/real/triangulated
+
+camera_data: none
+trajectory_data: none
+
+batch_size: 32
+interpolate: 300
+z0: 0.010 # bounce of table
+
