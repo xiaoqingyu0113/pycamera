@@ -104,7 +104,7 @@ class CameraParam:
     
     @classmethod
     def from_yaml(cls, yaml_file):
-        def read_yaml_file(file_path):
+        def read_yaml_file(file_path) -> dict:
             try:
                 with open(file_path, 'r') as file:
                     # Load the YAML data into a Python dictionary
@@ -121,8 +121,14 @@ class CameraParam:
         K  = np.array(camera_param_raw['camera_matrix']['data']).reshape(3,3)
         R =  np.array(camera_param_raw['rotation_matrix']['data']).reshape(3,3)
         t = np.array(camera_param_raw['translation'])
+        
+
+        # check if distortion coefficients exist
+        d = None
+        if 'distortion_coefficients' in camera_param_raw.keys():
+            d = np.array(camera_param_raw['distortion_coefficients']['data'])   
  
-        camera_param = cls(K,R,t,distortion=None, filename=yaml_file, backend='numpy')
+        camera_param = cls(K,R,t,distortion=d, filename=yaml_file, backend='numpy')
         return camera_param
 
     def parser(self):
@@ -140,7 +146,7 @@ class CameraParam:
     
     def proj2img(self,p,shape=None):
         if self.backend == 'numpy':
-            return _proj2img_numpy(p, self.K, self.R, self.t)
+            return _proj2img_numpy(p, self.K, self.R, self.t, d = self.d)   
         elif self.backend == 'torch':
             return _proj2img_torch(p, self.K, self.R, self.t, device=self.device)
         else:
@@ -160,7 +166,7 @@ class CameraParam:
         return ax
     
 
-def _proj2img_numpy(p, K, R, t):
+def _proj2img_numpy(p, K, R, t, d=None):
     '''
         p - 3 or Nx3
         uv1 - 3 or Nx3
@@ -177,6 +183,8 @@ def _proj2img_numpy(p, K, R, t):
         uv1 = uv_/uv_[2,:]
         uv = uv1.T[:,:2]
 
+    if d is not None:
+        uv = distort_pixel(uv, d, K)
     return uv
 
 def _proj2img_torch(p, K, R, t, device='cpu'):
@@ -338,13 +346,17 @@ def triangulate(uv_left: np.ndarray, uv_right: np.ndarray, left_camera_param:Cam
 
     assert len(uv_left) == 2 
     assert len(uv_right) == 2
-  
+    
+    uv_left = np.array(uv_left) 
+    uv_right = np.array(uv_right)
 
     # Convert points for triangulation
-    # homogeneous_2d_points_left = cv2.undistortPoints(uv_left, left_camera_param.K, left_camera_param.d, None, left_camera_param.K)
-    # homogeneous_2d_points_right = cv2.undistortPoints(uv_right, right_camera_param.K, right_camera_param.d, None, right_camera_param.K)
-    homogeneous_2d_points_left = np.array(uv_left)
-    homogeneous_2d_points_right = np.array(uv_right)
+    if left_camera_param.d is not None:
+        homogeneous_2d_points_left = cv2.undistortPoints(uv_left, left_camera_param.K, left_camera_param.d, None, left_camera_param.K)
+        homogeneous_2d_points_right = cv2.undistortPoints(uv_right, right_camera_param.K, right_camera_param.d, None, right_camera_param.K)
+    else:
+        homogeneous_2d_points_left = np.array(uv_left)
+        homogeneous_2d_points_right = np.array(uv_right)
 
     # Triangulate
     points_4d_homogeneous = cv2.triangulatePoints(
